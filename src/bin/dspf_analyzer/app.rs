@@ -4,6 +4,7 @@ use std::{
 };
 
 use dspf_parse::dspf::Dspf;
+use dspf_parse::dspf::LoadStatus;
 
 use color_eyre::Result;
 
@@ -15,63 +16,7 @@ use crate::{
     },
 };
 
-pub fn eng_format(value: f64) -> String {
-    let map: [(i32, char); 10] = [
-        (-18, 'a'),
-        (-15, 'f'),
-        (-12, 'p'),
-        (-9, 'n'),
-        (-6, 'u'),
-        (-3, 'm'),
-        (0, ' '),
-        (3, 'k'),
-        (6, 'M'),
-        (9, 'G'),
-    ];
-    let mut log = value.abs().log10();
-    if log.is_infinite() {
-        log = 0.0;
-    }
-
-    let option = map
-        .into_iter()
-        .find(|(exp, _)| (*exp as f64) > log - 3.0)
-        .unwrap_or((0, ' '));
-    let mant = value / 10.0_f64.powf(option.0 as f64);
-    let log_int = log.floor() as i32;
-    let suffix = option.1;
-
-    format!(
-        "{mant:.prec$} {suffix}F",
-        prec = (3 + option.0 - log_int) as usize
-    )
-
-    // match value {
-    // 0..1e-15 =>
-
-    // }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_eng_format() {
-        assert_eq!(&eng_format(0.0), "0.000  F");
-        assert_eq!(&eng_format(1.0001), "1.000  F");
-        assert_eq!(&eng_format(0.9999), "999.9 mF");
-        assert_eq!(&eng_format(-0.9999), "-999.9 mF");
-        assert_eq!(&eng_format(123.98), "124.0  F");
-        assert_eq!(&eng_format(-123.98), "-124.0  F");
-        assert_eq!(&eng_format(888.06e-15), "888.1 fF");
-        assert_eq!(&eng_format(-888.06e-15), "-888.1 fF");
-        assert_eq!(&eng_format(0.2388e9), "238.8 MF");
-        assert_eq!(&eng_format(-0.2388e9), "-238.8 MF");
-    }
-}
-pub enum Action {
-    // SelectionChanged(usize),
+pub(crate) enum Action {
     SelectMenuOption(usize),
     SelectNet(String),
     Quit,
@@ -80,9 +25,8 @@ pub enum Action {
 
 pub struct App {
     pub tui: Tui,
-    pub should_quit: bool,
+    pub running: bool,
     pub dspf: Option<Dspf>,
-    pub dspf_path: Option<String>,
     current_ui: Window,
     pub joinhandle: Option<JoinHandle<Dspf>>,
 }
@@ -92,9 +36,8 @@ impl App {
         let tui = Tui::new()?;
         Ok(Self {
             tui,
-            should_quit: false,
+            running: true,
             dspf: None,
-            dspf_path: None,
             current_ui: Window::blank(),
             joinhandle: None,
         })
@@ -103,10 +46,9 @@ impl App {
     pub fn from_file_path(path: &str) -> Result<Self> {
         let mut app = Self::new()?;
 
-        let status: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
+        let status: Arc<Mutex<LoadStatus>> = Arc::new(Mutex::new(LoadStatus::default()));
         app.current_ui = Window::Progress(ProgressUI::new(Arc::clone(&status)));
 
-        app.dspf_path = Some(path.to_owned());
         let p = path.to_owned();
         app.joinhandle = Some(thread::spawn(move || {
             Dspf::load(&p, Some(Arc::clone(&status)))
@@ -131,16 +73,14 @@ impl App {
                 let j = self.joinhandle.take().unwrap();
                 let dspf = j.join().unwrap();
                 self.dspf = Some(dspf);
-                self.current_ui = Window::MainMenu(MainMenuUI::new(
-                    self.dspf_path.as_ref().unwrap(),
-                    &self.dspf.as_ref().unwrap(),
-                ));
+                self.current_ui =
+                    Window::MainMenu(MainMenuUI::new(&self.dspf.as_ref().unwrap()));
             }
         }
     }
 
     pub fn main_loop(&mut self) -> Result<()> {
-        while !self.should_quit {
+        while self.running {
             self.try_join_loader();
 
             self.tui.draw(&mut self.current_ui)?;
@@ -180,11 +120,10 @@ impl App {
     fn main_menu(&mut self, selection: usize) {
         if selection == 0 {
             self.current_ui = Window::NetCapSelection(NetCapSelectionUI::new(
-                self.dspf_path.as_ref().unwrap(),
                 self.dspf.as_ref().unwrap(),
             ));
         } else if selection == 3 {
-            self.should_quit = true;
+            self.quit();
         }
     }
 
@@ -193,6 +132,6 @@ impl App {
     }
 
     pub fn quit(&mut self) {
-        self.should_quit = true;
+        self.running = false;
     }
 }

@@ -17,9 +17,9 @@ pub struct MainMenuUI {
 }
 
 impl MainMenuUI {
-    pub fn new(path: &str, dspf: &Dspf) -> Self {
+    pub fn new(dspf: &Dspf) -> Self {
         Self {
-            filename: path.to_owned(),
+            filename: dspf.file_path.to_owned(),
             filesize: dspf.file_size,
             num_nets: dspf.netlist.as_ref().unwrap().all_nets.len(),
             num_nodes: dspf.netlist.as_ref().unwrap().all_nodes.len(),

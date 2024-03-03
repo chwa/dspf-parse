@@ -3,6 +3,7 @@ use color_eyre::Result;
 mod app;
 mod event;
 mod tui;
+mod util;
 mod windows;
 
 use app::App;

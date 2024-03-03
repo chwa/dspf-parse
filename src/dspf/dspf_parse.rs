@@ -26,18 +26,44 @@ pub struct Dspf {
     pub netlist: Option<Netlist>,
 }
 
+/// Load progress to be shared with another thread through Arc<Mutex>
+#[derive(Default)]
+pub struct LoadStatus {
+    pub total_lines: usize,
+    pub loaded_lines: usize,
+    pub total_nets: usize,
+    pub loaded_nets: usize,
+    pub total_inst_blocks: usize,
+    pub loaded_inst_blocks: usize,
+}
+
 impl Dspf {
-    pub fn load(file_path: &str, status: Option<Arc<Mutex<String>>>) -> Dspf {
+    pub fn load(file_path: &str, status: Option<Arc<Mutex<LoadStatus>>>) -> Dspf {
         let f = File::open(file_path).unwrap();
         let filesize = f.metadata().unwrap().len();
         let f = BufReader::new(f);
 
-        let lines: Vec<(usize, String)> =
-            ContinuedLines::from_buf(f).collect::<io::Result<Vec<_>>>().unwrap();
+        let lines: Vec<(usize, String)> = ContinuedLines::from_buf(f)
+            .collect::<io::Result<Vec<_>>>()
+            .unwrap();
 
         let (_name, _pins, inner) = get_subckt(&lines);
 
         let (net_blocks, inst_blocks) = get_net_blocks(inner);
+
+        let num_lines = net_blocks.iter().map(|b| b.len()).sum::<usize>()
+            + inst_blocks.iter().map(|b| b.len()).sum::<usize>();
+        let mut loaded_lines = 0_usize;
+
+        if let Some(ref s) = status {
+            let mut status = s.lock().unwrap();
+            *status = LoadStatus {
+                total_lines: num_lines,
+                total_nets: net_blocks.len(),
+                total_inst_blocks: inst_blocks.len(),
+                ..LoadStatus::default()
+            };
+        }
 
         let mut netlist = Netlist::new();
         let mut nodes_map: HashMap<String, usize> = HashMap::new();
@@ -46,10 +72,6 @@ impl Dspf {
         nodes_map.insert(String::from("0"), 0);
 
         for (i, block) in net_blocks.iter().enumerate() {
-            if let Some(ref s) = status {
-                *s.lock().unwrap() = format!("Reading net block {}/{}...", i + 1, net_blocks.len());
-            }
-
             let mut it = block.iter(); // TODO: into_iter???
             let line = it.next().unwrap();
             let mut pairs = DspfParser::parse(Rule::dspf_net_line, &line.1).unwrap();
@@ -61,8 +83,10 @@ impl Dspf {
             nodes_map.insert(net_name.to_owned(), net_id);
 
             for (_, line) in it {
-                let element =
-                    DspfParser::parse(Rule::dspf_net_element, line).unwrap().next().unwrap();
+                let element = DspfParser::parse(Rule::dspf_net_element, line)
+                    .unwrap()
+                    .next()
+                    .unwrap();
                 match element.as_rule() {
                     Rule::dspf_pin_line => {
                         let mut inner = element.into_inner();
@@ -87,14 +111,15 @@ impl Dspf {
                     }
                     _ => {}
                 }
+                loaded_lines += 1;
+                if let Some(ref s) = status {
+                    let mut status = s.lock().unwrap();
+                    status.loaded_nets = i + 1;
+                    status.loaded_lines = loaded_lines;
+                }
             }
         }
         for (i, block) in inst_blocks.iter().enumerate() {
-            if let Some(ref s) = status {
-                *s.lock().unwrap() =
-                    format!("Reading instance block {}/{}...", i + 1, net_blocks.len());
-            }
-
             let it = block.iter();
             for (_, line) in it {
                 let mut element = DspfParser::parse(Rule::primitive_stmt, line).unwrap();
@@ -113,6 +138,12 @@ impl Dspf {
                 };
 
                 netlist.add_parasitic(&kind.unwrap(), node_a, node_b, value);
+                loaded_lines += 1;
+                if let Some(ref s) = status {
+                    let mut status = s.lock().unwrap();
+                    status.loaded_inst_blocks = i + 1;
+                    status.loaded_lines = loaded_lines;
+                }
             }
         }
 
@@ -164,17 +195,17 @@ fn get_net_blocks(lines: &[(usize, String)]) -> (Vec<Block>, Vec<Block>) {
         if text.starts_with("*|NET") {
             let net_start = i;
             let mut net_end = i;
-            while let Some((i, _)) =
-                it.next_if(|(_, (_, text))| text.starts_with("*|") && !text.starts_with("*|NET"))
-            {
+            while let Some((i, _)) = it.next_if(|(_, (_, text))| {
+                text.starts_with("*|") && !text.starts_with("*|NET")
+            }) {
                 net_end = i;
             }
             net_blocks.push(&lines[net_start..=net_end]);
 
             let inst_start = net_end + 1;
             let mut inst_end = inst_start;
-            while let Some((i, _)) =
-                it.next_if(|(_, (_, text))| text.starts_with("R") || text.starts_with("C"))
+            while let Some((i, _)) = it
+                .next_if(|(_, (_, text))| text.starts_with("R") || text.starts_with("C"))
             {
                 inst_end = i;
             }

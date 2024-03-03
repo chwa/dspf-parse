@@ -1,4 +1,4 @@
-use crate::app::eng_format;
+use crate::util::eng_format;
 use crate::{app::Action, event::Event};
 use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::KeyCode;

@@ -16,11 +16,12 @@ pub struct NetCapSelectionUI {
     pub selected_net: Option<String>,
     pub search_string: String,
     menu: ListSelect,
+    menu_height: u16,
     pub result_ui: NetCapResultUI,
 }
 
 impl NetCapSelectionUI {
-    pub fn new(path: &str, dspf: &Dspf) -> Self {
+    pub fn new(dspf: &Dspf) -> Self {
         let mut net_names: Vec<String> = dspf
             .netlist
             .as_ref()
@@ -31,11 +32,12 @@ impl NetCapSelectionUI {
             .collect();
         net_names.sort();
         let mut ui = Self {
-            filename: path.to_owned(),
+            filename: dspf.file_path.to_owned(),
             net_names: net_names,
             selected_net: None,
             search_string: String::from("*"),
             menu: ListSelect::new(vec![]),
+            menu_height: 1,
             result_ui: NetCapResultUI::new(NetCapReport::default()),
         };
 
@@ -130,6 +132,7 @@ impl Render for NetCapSelectionUI {
             .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
             .highlight_symbol("> ");
 
+        self.menu_height = inner_rows_layout[0].as_size().height - 2;
         // hack, how do I do this...
         self.menu
             .state
@@ -166,13 +169,13 @@ impl Render for NetCapSelectionUI {
                             Action::SelectNet(net_name)
                         }
                         KeyCode::PageUp => {
-                            let pos = self.menu.up(10);
+                            let pos = self.menu.up((self.menu_height - 1).into());
                             self.selection_changed(Some(pos));
                             let net_name = self.menu.items[pos].to_owned();
                             Action::SelectNet(net_name)
                         }
                         KeyCode::PageDown => {
-                            let pos = self.menu.down(10);
+                            let pos = self.menu.down((self.menu_height - 1).into());
                             self.selection_changed(Some(pos));
                             let net_name = self.menu.items[pos].to_owned();
                             Action::SelectNet(net_name)

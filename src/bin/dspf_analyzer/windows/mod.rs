@@ -4,11 +4,13 @@ pub mod net_cap_selection;
 
 use std::sync::{Arc, Mutex};
 
-use ratatui::{
-    layout::Alignment,
-    widgets::{Block, BorderType, Borders, Paragraph},
-    Frame,
-};
+use color_eyre::owo_colors::OwoColorize;
+use dspf_parse::dspf::LoadStatus;
+use ratatui::Frame;
+use ratatui::{layout::Alignment, text::Line};
+use ratatui::{prelude::*, widgets::*};
+
+use color_eyre::{eyre::Context, Result};
 
 use crate::{app::Action, event::Event};
 
@@ -67,36 +69,87 @@ impl Render for BlankUI {
 }
 
 pub struct ProgressUI {
-    text: String,
-    // progress: Arc<AtomicUsize>,
-    status: Arc<Mutex<String>>,
+    status: Arc<Mutex<LoadStatus>>,
 }
 
 impl ProgressUI {
-    pub fn new(status: Arc<Mutex<String>>) -> Self {
-        Self {
-            text: String::from("Loading..."),
-            status,
-        }
+    pub fn new(status: Arc<Mutex<LoadStatus>>) -> Self {
+        Self { status }
     }
 }
 
 impl Render for ProgressUI {
     fn render(&mut self, frame: &mut Frame) -> () {
+        let rows_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![
+                Constraint::Fill(1),
+                Constraint::Length(10),
+                Constraint::Fill(1),
+            ])
+            .split(frame.size());
+        let cols_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![
+                Constraint::Fill(1),
+                Constraint::Length(60),
+                Constraint::Fill(1),
+            ])
+            .split(rows_layout[1]);
+
+        let block = Block::new()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded);
+
+        let inner_area = block.inner(cols_layout[1]);
+        let rows_layout_inner = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![
+                Constraint::Fill(1),
+                Constraint::Length(3),
+                Constraint::Fill(4),
+            ])
+            .split(inner_area);
+
+        let st = self.status.lock().unwrap();
+
+        let lines = vec![
+            Line::from(format!("{}/{} Lines", st.loaded_lines, st.total_lines)),
+            Line::from(format!("{}/{} Net blocks", st.loaded_nets, st.total_nets)),
+            Line::from(format!(
+                "{}/{} Instance blocks",
+                st.loaded_inst_blocks, st.total_inst_blocks
+            )),
+        ];
+        frame.render_widget(block, cols_layout[1]);
+
         frame.render_widget(
-            Paragraph::new(self.text.clone())
-                .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded))
-                .alignment(Alignment::Center),
-            frame.size(),
-        )
+            Paragraph::new("Loading...").alignment(Alignment::Center),
+            rows_layout_inner[0],
+        );
+        let mut ratio = (st.loaded_lines as f64) / (st.total_lines as f64);
+        if ratio.is_nan() {
+            ratio = 0.0;
+        }
+
+        frame.render_widget(
+            Gauge::default()
+                .use_unicode(true)
+                .block(Block::bordered())
+                .gauge_style(Color::Rgb(100, 100, 100))
+                .ratio(ratio),
+            rows_layout_inner[1],
+        );
+
+        frame.render_widget(
+            Paragraph::new(lines).alignment(Alignment::Center),
+            rows_layout_inner[2],
+        );
     }
 
     fn handle_event(&mut self, event: &Event) -> Action {
         match event {
-            Event::Tick => {
-                self.text = self.status.lock().unwrap().clone();
-                Action::None
-            }
+            Event::Tick => Action::None,
             Event::Key(_) => Action::Quit,
             Event::Mouse(_) => Action::None,
             Event::Resize(_, _) => Action::None,
