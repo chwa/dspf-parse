@@ -22,7 +22,6 @@ pub struct DspfParser;
 pub struct Dspf {
     pub file_path: String,
     pub file_size: u64,
-    pub lines: Vec<(usize, String)>,
     pub netlist: Option<Netlist>,
 }
 
@@ -150,7 +149,6 @@ impl Dspf {
         Dspf {
             file_path: file_path.to_owned(),
             file_size: filesize,
-            lines: lines,
             netlist: Some(netlist),
         }
     }

@@ -112,7 +112,6 @@ impl Netlist {
 
     pub fn add_subnode(&mut self, subnode_name: &str, of_net: usize) -> usize {
         let node = Node {
-            name: subnode_name.to_owned(),
             parasitics: vec![],
             of_net: of_net,
         };
@@ -124,7 +123,13 @@ impl Netlist {
         index
     }
 
-    pub fn add_parasitic(&mut self, kind: &Primitive, node_a: usize, node_b: usize, value: f64) {
+    pub fn add_parasitic(
+        &mut self,
+        kind: &Primitive,
+        node_a: usize,
+        node_b: usize,
+        value: f64,
+    ) {
         let element = match kind {
             Primitive::R => Parasitic::R(node_a, node_b, value),
             Primitive::C => Parasitic::C(node_a, node_b, value),
@@ -132,8 +137,16 @@ impl Netlist {
 
         self.all_parasitics.push(element);
         let index = self.all_parasitics.len() - 1;
-        self.all_nodes.get_mut(node_a).unwrap().parasitics.push(index);
-        self.all_nodes.get_mut(node_b).unwrap().parasitics.push(index);
+        self.all_nodes
+            .get_mut(node_a)
+            .unwrap()
+            .parasitics
+            .push(index);
+        self.all_nodes
+            .get_mut(node_b)
+            .unwrap()
+            .parasitics
+            .push(index);
     }
 
     pub fn cap_for_net(&self, net_name: &str) -> f64 {
@@ -169,7 +182,6 @@ impl std::fmt::Debug for Net {
 
 #[derive(Debug)]
 pub struct Node {
-    pub name: String,
     pub parasitics: Vec<usize>,
     pub of_net: usize,
 }
