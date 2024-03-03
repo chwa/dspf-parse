@@ -1,3 +1,4 @@
+mod cont;
 mod dspf_parse;
-mod netlist;
+pub mod netlist;
 pub use dspf_parse::Dspf;

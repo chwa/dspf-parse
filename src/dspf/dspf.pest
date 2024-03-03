@@ -39,14 +39,13 @@ primitive_inst_name = @{ ("R" | "C") ~ simple_name }
 primitive_nodeA = _{ identifier }
 primitive_nodeB = _{ identifier }
 primitive_value = _{ number }
-primitive_stmt = {
+primitive_stmt = _{
     primitive_inst_name ~
     primitive_nodeA ~
     primitive_nodeB ~
     primitive_value ~
     layer_name? ~
-    dollar_params ~
-    NEWLINE
+    dollar_params
 }
 
 // ------------------
@@ -69,8 +68,7 @@ instance_stmt = {
     instance_name ~
     instance_pinlist ~
     instance_model_name ~
-    instance_param_list ~
-    NEWLINE
+    instance_param_list
 }
 
 // ----------------
@@ -83,22 +81,24 @@ dspf_other = { "*|" ~ (!NEWLINE ~ ANY)* ~ NEWLINE}
 
 slash_comment = { "//" ~ (!NEWLINE ~ ANY)* }
 
-dspf_net_line = { "*|NET" ~ identifier ~ number ~ NEWLINE }
+dspf_net_line = _{ "*|NET" ~ identifier ~ number }
 pin_params = _{ "(" ~ identifier ~ ASCII_ALPHA_UPPER ~ number ~ (number ~ number)? ~ ")" }
-dspf_pin_line = { "*|P" ~ pin_params ~ slash_comment? ~ NEWLINE}
+dspf_pin_line = { "*|P" ~ pin_params ~ slash_comment? }
 
 instpin_params = _{ "(" ~ identifier ~ identifier ~ identifier ~ ASCII_ALPHA_UPPER ~ number ~ (number ~ number)? ~ ")" }
 
 
 // *|I (XMnmos<3>#g XMnmos<3> g X 0 -2.40350 1.44000) // $llx=-2.40350 $lly=1.44000 $urx=-2.40350 $ury=1.44000 $lvl=7
-dspf_inst_line = { "*|I" ~ instpin_params ~ slash_comment? ~ NEWLINE}
+dspf_inst_line = { "*|I" ~ instpin_params ~ slash_comment? }
 
-dspf_subnode_line = { "*|S" ~ "(" ~ identifier ~ (number ~ number)? ~ ")" ~ slash_comment? ~ NEWLINE}
+dspf_subnode_line = { "*|S" ~ "(" ~ identifier ~ (number ~ number)? ~ ")" ~ slash_comment? }
 
 dspf_net_section = {
     dspf_net_line ~
     (dspf_pin_line | dspf_inst_line | dspf_subnode_line)*
 }
+
+dspf_net_element = _{ dspf_pin_line | dspf_inst_line | dspf_subnode_line | instance_stmt }
 
 // ----------------
 // SUBCKT STATEMENT
@@ -107,6 +107,8 @@ dspf_net_section = {
 pins = { simple_name+ }
 
 subckt_name = { simple_name }
+
+subckt_line = _{ ".SUBCKT" ~ subckt_name ~ pins }
 
 subckt = {
     ".SUBCKT" ~ subckt_name ~ pins ~ NEWLINE ~

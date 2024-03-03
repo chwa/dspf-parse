@@ -2,7 +2,8 @@ use bytesize::ByteSize;
 use crossterm::event::KeyCode;
 use ratatui::{prelude::*, widgets::*};
 
-use crate::{app::Action, dspf::Dspf, event::Event};
+use crate::{app::Action, event::Event};
+use dspf_parse::dspf::Dspf;
 
 use super::Render;
 
@@ -19,7 +20,7 @@ impl MainMenuUI {
     pub fn new(path: &str, dspf: &Dspf) -> Self {
         Self {
             filename: path.to_owned(),
-            filesize: u64::try_from(dspf.file_contents.len()).unwrap(),
+            filesize: dspf.file_size,
             num_nets: dspf.netlist.as_ref().unwrap().all_nets.len(),
             num_nodes: dspf.netlist.as_ref().unwrap().all_nodes.len(),
             num_elements: dspf.netlist.as_ref().unwrap().all_parasitics.len(),
@@ -146,6 +147,9 @@ impl ListSelect {
         }
         self.state.select(Some(index));
         index
+    }
+    pub fn select_state(&mut self, state: Option<usize>) {
+        self.state.select(state);
     }
 
     pub fn select(&self) -> Action {

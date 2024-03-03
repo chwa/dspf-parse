@@ -7,12 +7,11 @@ use crossterm::{
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
 
-pub type CrosstermTerminal =
-    ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stderr>>;
+pub type CrosstermTerminal = ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stderr>>;
 
 use crate::{
     event::EventHandler,
-    uis::{Render, UI},
+    windows::{Render, Window},
 };
 
 pub struct Tui {
@@ -52,7 +51,7 @@ impl Tui {
         Ok(())
     }
 
-    pub fn draw(&mut self, ui: &mut UI) -> Result<()> {
+    pub fn draw(&mut self, ui: &mut Window) -> Result<()> {
         self.terminal.draw(|frame| ui.render(frame))?;
         Ok(())
     }

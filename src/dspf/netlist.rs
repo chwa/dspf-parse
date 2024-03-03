@@ -1,12 +1,11 @@
+use color_eyre::{eyre::ContextCompat, Result};
 use std::collections::HashMap;
 
-// #[derive(Default)]
 pub struct Netlist {
     pub all_nets: Vec<Net>,
     pub nets_map: HashMap<String, usize>,
 
     pub all_nodes: Vec<Node>,
-    nodes_map: HashMap<String, usize>,
 
     pub all_parasitics: Vec<Parasitic>,
 }
@@ -25,15 +24,75 @@ pub enum Primitive {
     R,
 }
 
+pub struct NetCapForAggressor {
+    pub aggressor_name: String,
+    pub cap: f64,
+}
+pub struct NetCapForLayer {
+    pub layer_name: String,
+    pub cap: f64,
+}
+
+#[derive(Default)]
+pub struct NetCapReport {
+    pub net_name: String,
+    pub total_cap: f64,
+    pub per_aggressor: Vec<NetCapForAggressor>,
+    pub per_layer: Vec<NetCapForLayer>,
+}
+
 impl Netlist {
     pub fn new() -> Self {
         Netlist {
             all_nets: Vec::new(),
             nets_map: HashMap::new(),
             all_nodes: Vec::new(),
-            nodes_map: HashMap::new(),
             all_parasitics: Vec::new(),
         }
+    }
+
+    pub fn get_net(&self, net: &str) -> Result<&Net> {
+        let idx = self.nets_map.get(net).context("Net name not found")?;
+        Ok(&self.all_nets[*idx])
+    }
+
+    pub fn get_net_capacitors(&self, net_name: &str) -> Result<NetCapReport> {
+        let idx = self.nets_map.get(net_name).context("Net name not found")?;
+        let net = &self.all_nets[*idx];
+
+        let mut net_caps: HashMap<usize, f64> = HashMap::new();
+
+        for subnode_idx in net.sub_nets.iter() {
+            let subnode = &self.all_nodes[*subnode_idx];
+            for parasitic in subnode.parasitics.iter().map(|s| &self.all_parasitics[*s]) {
+                if let Parasitic::C(node_a, node_b, value) = parasitic {
+                    let other_node: usize;
+                    if node_a == subnode_idx {
+                        other_node = *node_b;
+                    } else {
+                        other_node = *node_a;
+                    }
+                    let other_net = self.all_nodes[other_node].of_net;
+                    *net_caps.entry(other_net).or_insert(0.0) += value;
+                }
+            }
+        }
+        let mut per_aggressor: Vec<NetCapForAggressor> = Vec::new();
+        let per_layer: Vec<NetCapForLayer> = Vec::new();
+        for (idx, value) in net_caps.drain() {
+            per_aggressor.push(NetCapForAggressor {
+                aggressor_name: self.all_nets[idx].name.to_owned(),
+                cap: value,
+            });
+        }
+        per_aggressor.sort_by(|a, b| b.cap.partial_cmp(&a.cap).unwrap());
+        let report = NetCapReport {
+            net_name: net_name.to_owned(),
+            total_cap: net.total_capacitance,
+            per_aggressor: per_aggressor,
+            per_layer: per_layer,
+        };
+        Ok(report)
     }
 
     pub fn create_net(&mut self, name: &str, capacitance: f64) -> usize {
@@ -51,46 +110,30 @@ impl Netlist {
         index
     }
 
-    pub fn add_subnode(&mut self, subnode_name: &str, of_net: usize) {
+    pub fn add_subnode(&mut self, subnode_name: &str, of_net: usize) -> usize {
         let node = Node {
             name: subnode_name.to_owned(),
             parasitics: vec![],
+            of_net: of_net,
         };
 
         self.all_nodes.push(node);
         let index = self.all_nodes.len() - 1;
 
-        self.nodes_map.insert(subnode_name.to_owned(), index);
         self.all_nets.get_mut(of_net).unwrap().sub_nets.push(index);
+        index
     }
 
-    pub fn add_parasitic(
-        &mut self,
-        kind: &Primitive,
-        node_a: &str,
-        node_b: &str,
-        value: f64,
-    ) {
-        let idx_a = self.nodes_map.get(node_a).unwrap();
-        let idx_b = self.nodes_map.get(node_b).unwrap();
-
+    pub fn add_parasitic(&mut self, kind: &Primitive, node_a: usize, node_b: usize, value: f64) {
         let element = match kind {
-            Primitive::R => Parasitic::R(*idx_a, *idx_b, value),
-            Primitive::C => Parasitic::C(*idx_a, *idx_b, value),
+            Primitive::R => Parasitic::R(node_a, node_b, value),
+            Primitive::C => Parasitic::C(node_a, node_b, value),
         };
 
         self.all_parasitics.push(element);
         let index = self.all_parasitics.len() - 1;
-        self.all_nodes
-            .get_mut(*idx_a)
-            .unwrap()
-            .parasitics
-            .push(index);
-        self.all_nodes
-            .get_mut(*idx_b)
-            .unwrap()
-            .parasitics
-            .push(index);
+        self.all_nodes.get_mut(node_a).unwrap().parasitics.push(index);
+        self.all_nodes.get_mut(node_b).unwrap().parasitics.push(index);
     }
 
     pub fn cap_for_net(&self, net_name: &str) -> f64 {
@@ -128,6 +171,7 @@ impl std::fmt::Debug for Net {
 pub struct Node {
     pub name: String,
     pub parasitics: Vec<usize>,
+    pub of_net: usize,
 }
 
 #[derive(Debug)]
