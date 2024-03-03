@@ -1,3 +1,6 @@
+> [!CAUTION]
+> Early development, not usable yet.
+
 dspf-analyzer
 =============
 
