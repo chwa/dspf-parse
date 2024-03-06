@@ -7,7 +7,7 @@ pub struct Netlist {
 
     pub all_nodes: Vec<Node>,
 
-    pub all_parasitics: Vec<Parasitic>,
+    pub capacitors: Vec<Capacitor>,
 }
 
 impl std::fmt::Debug for Netlist {
@@ -47,7 +47,7 @@ impl Netlist {
             all_nets: Vec::new(),
             nets_map: HashMap::new(),
             all_nodes: Vec::new(),
-            all_parasitics: Vec::new(),
+            capacitors: Vec::new(),
         }
     }
 
@@ -64,17 +64,15 @@ impl Netlist {
 
         for subnode_idx in net.sub_nets.iter() {
             let subnode = &self.all_nodes[*subnode_idx];
-            for parasitic in subnode.parasitics.iter().map(|s| &self.all_parasitics[*s]) {
-                if let Parasitic::C(node_a, node_b, value) = parasitic {
-                    let other_node: usize;
-                    if node_a == subnode_idx {
-                        other_node = *node_b;
-                    } else {
-                        other_node = *node_a;
-                    }
-                    let other_net = self.all_nodes[other_node].of_net;
-                    *net_caps.entry(other_net).or_insert(0.0) += value;
+            for cap in subnode.capacitors.iter().map(|s| &self.capacitors[*s]) {
+                let other_node: usize;
+                if cap.nodes.0 == *subnode_idx {
+                    other_node = cap.nodes.1;
+                } else {
+                    other_node = cap.nodes.0;
                 }
+                let other_net = self.all_nodes[other_node].of_net;
+                *net_caps.entry(other_net).or_insert(0.0) += cap.value;
             }
         }
         let mut per_aggressor: Vec<NetCapForAggressor> = Vec::new();
@@ -107,20 +105,21 @@ impl Netlist {
                 net_type,
             },
             total_capacitance: capacitance,
-            sub_nets: vec![],
+            sub_nets: Vec::new(),
+            resistors: Vec::new(),
         };
         self.all_nets.push(net);
         let index = self.all_nets.len() - 1;
         self.nets_map.insert(name.to_owned(), index);
 
         // we add the net as a subnote here (most nets also appear in the *|S subnet definitions, but not all...)
-        self.add_subnode(name, index);
+        self.add_subnode(index);
         index
     }
 
-    pub fn add_subnode(&mut self, subnode_name: &str, of_net: usize) -> usize {
+    pub fn add_subnode(&mut self, of_net: usize) -> usize {
         let node = Node {
-            parasitics: vec![],
+            capacitors: Vec::new(),
             of_net: of_net,
         };
 
@@ -131,29 +130,22 @@ impl Netlist {
         index
     }
 
-    pub fn add_parasitic(
-        &mut self,
-        kind: &Primitive,
-        node_a: usize,
-        node_b: usize,
-        value: f64,
-    ) {
-        let element = match kind {
-            Primitive::R => Parasitic::R(node_a, node_b, value),
-            Primitive::C => Parasitic::C(node_a, node_b, value),
-        };
-
-        self.all_parasitics.push(element);
-        let index = self.all_parasitics.len() - 1;
+    pub fn add_capacitor(&mut self, nodes: (usize, usize), value: f64, layers: (u8, u8)) {
+        self.capacitors.push(Capacitor {
+            nodes,
+            value,
+            layers,
+        });
+        let index = self.capacitors.len() - 1;
         self.all_nodes
-            .get_mut(node_a)
+            .get_mut(nodes.0)
             .unwrap()
-            .parasitics
+            .capacitors
             .push(index);
         self.all_nodes
-            .get_mut(node_b)
+            .get_mut(nodes.1)
             .unwrap()
-            .parasitics
+            .capacitors
             .push(index);
     }
 
@@ -161,10 +153,9 @@ impl Netlist {
         let mut total = 0.0;
         let net_idx = self.nets_map.get(net_name).unwrap();
         for subnode_idx in self.all_nets[*net_idx].sub_nets.iter() {
-            for p_idx in self.all_nodes[*subnode_idx].parasitics.iter() {
-                if let Parasitic::C(_, _, value) = self.all_parasitics[*p_idx] {
-                    total += value;
-                }
+            for p_idx in self.all_nodes[*subnode_idx].capacitors.iter() {
+                let Capacitor { value: v, .. } = self.capacitors[*p_idx];
+                total += v;
             }
         }
         total
@@ -189,7 +180,7 @@ pub struct Net {
     pub info: NetInfo,
     pub total_capacitance: f64,
     pub sub_nets: Vec<usize>,
-    // instance_pins: ...
+    pub resistors: Vec<Resistor>,
 }
 
 impl std::fmt::Debug for Net {
@@ -204,12 +195,20 @@ impl std::fmt::Debug for Net {
 
 #[derive(Debug)]
 pub struct Node {
-    pub parasitics: Vec<usize>,
+    pub capacitors: Vec<usize>,
     pub of_net: usize,
 }
 
 #[derive(Debug)]
-pub enum Parasitic {
-    R(usize, usize, f64),
-    C(usize, usize, f64),
+pub struct Resistor {
+    nodes: (usize, usize),
+    value: f64,
+    layer: u8,
+}
+
+#[derive(Debug)]
+pub struct Capacitor {
+    nodes: (usize, usize),
+    value: f64,
+    layers: (u8, u8),
 }

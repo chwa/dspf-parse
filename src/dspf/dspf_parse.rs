@@ -11,7 +11,7 @@ use pest_derive::Parser;
 
 use super::{
     cont::ContinuedLines,
-    netlist::{NetType, Netlist, Primitive},
+    netlist::{NetType, Netlist},
 };
 
 #[derive(Parser)]
@@ -95,7 +95,7 @@ impl Dspf {
                         let mut inner = element.into_inner();
                         let pin_name = inner.next().unwrap().as_str();
                         // TODO other pin params
-                        let index = netlist.add_subnode(pin_name, net_id);
+                        let index = netlist.add_subnode(net_id);
                         nodes_map.insert(pin_name.to_owned(), index);
                     }
                     Rule::dspf_inst_line => {
@@ -103,13 +103,13 @@ impl Dspf {
                         let node_name = inner.next().unwrap().as_str();
                         let _inst_name = inner.next().unwrap().as_str();
                         let _pin_name = inner.next().unwrap().as_str();
-                        let index = netlist.add_subnode(node_name, net_id);
+                        let index = netlist.add_subnode(net_id);
                         nodes_map.insert(node_name.to_owned(), index);
                     }
                     Rule::dspf_subnode_line => {
                         let mut inner = element.into_inner();
                         let node_name = inner.next().unwrap().as_str();
-                        let index = netlist.add_subnode(node_name, net_id);
+                        let index = netlist.add_subnode(net_id);
                         nodes_map.insert(node_name.to_owned(), index);
                     }
                     _ => {}
@@ -133,14 +133,14 @@ impl Dspf {
                 let node_b = element.next().unwrap().as_str();
                 let node_b: usize = *nodes_map.get(node_b).unwrap();
                 let value = element.next().unwrap().as_str().parse::<f64>().unwrap();
+                let layers = (0_u8, 0_u8); // TODO
 
-                let kind = match inst_name.chars().next().unwrap() {
-                    'R' => Some(Primitive::R),
-                    'C' => Some(Primitive::C),
-                    _ => None,
+                match inst_name.chars().next().unwrap() {
+                    'R' => {}
+                    'C' => netlist.add_capacitor((node_a, node_b), value, layers),
+                    _ => {}
                 };
 
-                netlist.add_parasitic(&kind.unwrap(), node_a, node_b, value);
                 loaded_lines += 1;
                 if let Some(ref s) = status {
                     let mut status = s.lock().unwrap();

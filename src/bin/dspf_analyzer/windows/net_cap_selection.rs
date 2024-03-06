@@ -1,6 +1,6 @@
 use crate::{app::Action, event::Event};
 use crossterm::event::KeyCode;
-use dspf_parse::dspf::netlist::{Net, NetCapReport, NetInfo, NetType};
+use dspf_parse::dspf::netlist::{NetCapReport, NetInfo, NetType};
 use dspf_parse::dspf::Dspf;
 use globset::Glob;
 use ratatui::Frame;

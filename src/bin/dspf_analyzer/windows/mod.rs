@@ -4,18 +4,14 @@ pub mod net_cap_selection;
 
 use std::sync::{Arc, Mutex};
 
-use color_eyre::owo_colors::OwoColorize;
 use dspf_parse::dspf::LoadStatus;
 use ratatui::Frame;
 use ratatui::{layout::Alignment, text::Line};
 use ratatui::{prelude::*, widgets::*};
 
-use color_eyre::{eyre::Context, Result};
-
 use crate::{app::Action, event::Event};
 
 use self::main_menu::MainMenuUI;
-use self::net_cap_result::NetCapResultUI;
 use self::net_cap_selection::NetCapSelectionUI;
 
 pub trait Render {
@@ -27,7 +23,6 @@ pub enum Window {
     Blank(BlankUI),
     MainMenu(MainMenuUI),
     NetCapSelection(NetCapSelectionUI),
-    NetCapResult(NetCapResultUI),
     Progress(ProgressUI),
 }
 
@@ -43,7 +38,6 @@ impl Render for Window {
             Window::Blank(ui) => ui.render(frame),
             Window::MainMenu(ui) => ui.render(frame),
             Window::NetCapSelection(ui) => ui.render(frame),
-            Window::NetCapResult(ui) => ui.render(frame),
             Window::Progress(ui) => ui.render(frame),
         }
     }
@@ -52,7 +46,6 @@ impl Render for Window {
             Window::Blank(ui) => ui.handle_event(event),
             Window::MainMenu(ui) => ui.handle_event(event),
             Window::NetCapSelection(ui) => ui.handle_event(event),
-            Window::NetCapResult(ui) => ui.handle_event(event),
             Window::Progress(ui) => ui.handle_event(event),
         }
     }

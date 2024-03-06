@@ -12,7 +12,7 @@ pub struct MainMenuUI {
     pub filesize: u64,
     pub num_nets: usize,
     pub num_nodes: usize,
-    pub num_elements: usize,
+    pub num_capacitors: usize,
     menu: ListSelect<String>,
 }
 
@@ -23,7 +23,7 @@ impl MainMenuUI {
             filesize: dspf.file_size,
             num_nets: dspf.netlist.as_ref().unwrap().all_nets.len(),
             num_nodes: dspf.netlist.as_ref().unwrap().all_nodes.len(),
-            num_elements: dspf.netlist.as_ref().unwrap().all_parasitics.len(),
+            num_capacitors: dspf.netlist.as_ref().unwrap().capacitors.len(),
             menu: ListSelect::new(vec![
                 "Report capacitance for net...".to_string(),
                 "Report capacitance between 2 nets...".to_string(),
@@ -59,8 +59,8 @@ impl Render for MainMenuUI {
                 Span::styled(self.num_nodes.to_string(), Style::new().gray()),
             ]),
             Line::from(vec![
-                Span::raw(pad("Parasitic elements:")),
-                Span::styled(self.num_elements.to_string(), Style::new().gray()),
+                Span::raw(pad("Parasitic capacitors:")),
+                Span::styled(self.num_capacitors.to_string(), Style::new().gray()),
             ]),
         ];
 
