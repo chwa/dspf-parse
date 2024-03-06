@@ -1,5 +1,6 @@
 mod cont;
-mod dspf_parse;
 pub mod netlist;
-pub use dspf_parse::Dspf;
-pub use dspf_parse::LoadStatus;
+mod nomdspf;
+mod pestdspf;
+pub use pestdspf::Dspf;
+pub use pestdspf::LoadStatus;

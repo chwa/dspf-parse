@@ -35,18 +35,32 @@ layer_name = @{!dollar_item ~ "$" ~ simple_name}
 // R/C INSTANCE STATEMENT
 // ----------------------
 
-primitive_inst_name = @{ ("R" | "C") ~ simple_name }
-primitive_nodeA = _{ identifier }
-primitive_nodeB = _{ identifier }
-primitive_value = _{ number }
-primitive_stmt = _{
-    primitive_inst_name ~
-    primitive_nodeA ~
-    primitive_nodeB ~
-    primitive_value ~
+resistor_inst_name = @{ "R" ~ simple_name }
+resistor_nodeA = _{ identifier }
+resistor_nodeB = _{ identifier }
+resistor_value = _{ number }
+resistor_stmt = {
+    resistor_inst_name ~
+    resistor_nodeA ~
+    resistor_nodeB ~
+    resistor_value ~
     layer_name? ~
     dollar_params
 }
+
+capacitor_inst_name = @{ "C" ~ simple_name }
+capacitor_nodeA = _{ identifier }
+capacitor_nodeB = _{ identifier }
+capacitor_value = _{ number }
+capacitor_stmt = {
+    capacitor_inst_name ~
+    capacitor_nodeA ~
+    capacitor_nodeB ~
+    capacitor_value ~
+    dollar_params
+}
+
+primitive_stmt = _{ resistor_stmt | capacitor_stmt }
 
 // ------------------
 // INSTANCE STATEMENT

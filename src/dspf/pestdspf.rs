@@ -125,21 +125,52 @@ impl Dspf {
         for (i, block) in inst_blocks.iter().enumerate() {
             let it = block.iter();
             for (_, line) in it {
-                let mut element = DspfParser::parse(Rule::primitive_stmt, line).unwrap();
+                let element = DspfParser::parse(Rule::primitive_stmt, line)
+                    .unwrap()
+                    .next()
+                    .unwrap();
 
-                let inst_name = element.next().unwrap().as_str();
-                let node_a = element.next().unwrap().as_str();
-                let node_a: usize = *nodes_map.get(node_a).unwrap();
-                let node_b = element.next().unwrap().as_str();
-                let node_b: usize = *nodes_map.get(node_b).unwrap();
-                let value = element.next().unwrap().as_str().parse::<f64>().unwrap();
-                let layers = (0_u8, 0_u8); // TODO
-
-                match inst_name.chars().next().unwrap() {
-                    'R' => {}
-                    'C' => netlist.add_capacitor((node_a, node_b), value, layers),
-                    _ => {}
-                };
+                match element.as_rule() {
+                    Rule::resistor_stmt => {
+                        let mut element = element.into_inner();
+                        let _inst_name = element.next().unwrap().as_str();
+                        let node_a = element.next().unwrap().as_str();
+                        let node_a: usize = *nodes_map.get(node_a).unwrap();
+                        let node_b = element.next().unwrap().as_str();
+                        let node_b: usize = *nodes_map.get(node_b).unwrap();
+                        let value =
+                            element.next().unwrap().as_str().parse::<f64>().unwrap();
+                        let item = element.next().unwrap();
+                        let layer = match item.as_rule() {
+                            Rule::layer_name => {
+                                let _name = item.as_str();
+                                1_u8
+                            } // TODO
+                            _ => 0_u8,
+                        };
+                        netlist.add_resistor(
+                            netlist.all_nodes[node_a].of_net,
+                            (node_a, node_b),
+                            value,
+                            layer,
+                        );
+                    }
+                    Rule::capacitor_stmt => {
+                        let mut element = element.into_inner();
+                        let _inst_name = element.next().unwrap().as_str();
+                        let node_a = element.next().unwrap().as_str();
+                        let node_a: usize = *nodes_map.get(node_a).unwrap();
+                        let node_b = element.next().unwrap().as_str();
+                        let node_b: usize = *nodes_map.get(node_b).unwrap();
+                        let value =
+                            element.next().unwrap().as_str().parse::<f64>().unwrap();
+                        let layers = (0_u8, 0_u8); // TODO
+                        netlist.add_capacitor((node_a, node_b), value, layers);
+                    }
+                    _ => {
+                        assert!(false);
+                    }
+                }
 
                 loaded_lines += 1;
                 if let Some(ref s) = status {

@@ -93,12 +93,7 @@ impl Netlist {
         Ok(report)
     }
 
-    pub fn create_net(
-        &mut self,
-        name: &str,
-        capacitance: f64,
-        net_type: NetType,
-    ) -> usize {
+    pub fn create_net(&mut self, name: &str, capacitance: f64, net_type: NetType) -> usize {
         let net = Net {
             info: NetInfo {
                 name: name.to_owned(),
@@ -137,17 +132,10 @@ impl Netlist {
             layers,
         });
         let index = self.capacitors.len() - 1;
-        self.all_nodes
-            .get_mut(nodes.0)
-            .unwrap()
-            .capacitors
-            .push(index);
-        self.all_nodes
-            .get_mut(nodes.1)
-            .unwrap()
-            .capacitors
-            .push(index);
+        self.all_nodes.get_mut(nodes.0).unwrap().capacitors.push(index);
+        self.all_nodes.get_mut(nodes.1).unwrap().capacitors.push(index);
     }
+    pub fn add_resistor(&mut self, net: usize, nodes: (usize, usize), value: f64, layer: u8) {}
 
     pub fn cap_for_net(&self, net_name: &str) -> f64 {
         let mut total = 0.0;
