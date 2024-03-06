@@ -1,8 +1,3 @@
-use std::fmt::format;
-
-use crate::dspf::netlist::Netlist;
-use color_eyre::{eyre::ContextCompat, Result};
-
 // enum NetCap {
 //     ForAggressor { name: String, cap: f64 },
 //     ForLayer {},
@@ -46,7 +41,9 @@ impl Table {
     fn sort(&mut self, column: usize) {
         match column {
             0 => self.0.sort_by(|a, b| a.name.partial_cmp(&b.name).unwrap()),
-            1 => self.0.sort_by(|a, b| a.value.partial_cmp(&b.value).unwrap()),
+            1 => self
+                .0
+                .sort_by(|a, b| a.value.partial_cmp(&b.value).unwrap()),
             _ => {}
         };
     }

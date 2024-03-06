@@ -1,9 +1,7 @@
 use crate::util::eng_format;
 use crate::{app::Action, event::Event};
-use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::KeyCode;
-use dspf_parse::dspf::netlist::{Net, NetCapReport};
-use dspf_parse::dspf::Dspf;
+use dspf_parse::dspf::netlist::NetCapReport;
 use ratatui::Frame;
 use ratatui::{prelude::*, widgets::*};
 
@@ -52,10 +50,10 @@ fn line_bar(width: usize, frac: f64) -> Line<'static> {
 
 impl NetCapResultUI {
     pub fn new(report: NetCapReport) -> Self {
-        let mut ui = Self { report };
+        let ui = Self { report };
         ui
     }
-    fn selection_changed(&mut self, i: usize) {}
+
     pub fn render_in_rect(&mut self, frame: &mut Frame, rect: &Rect) -> () {
         let rows_layout = Layout::default()
             .direction(Direction::Vertical)
@@ -72,7 +70,7 @@ impl NetCapResultUI {
                 Block::new()
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
-                    .padding(Padding::horizontal(2)),
+                    .padding(Padding::horizontal(1)),
             ),
             rows_layout[0],
         );
@@ -107,7 +105,7 @@ impl NetCapResultUI {
             Block::new()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .padding(Padding::horizontal(2)),
+                .padding(Padding::horizontal(1)),
         );
         frame.render_widget(table, rows_layout[1]);
     }

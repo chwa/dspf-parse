@@ -81,7 +81,7 @@ impl Netlist {
         let per_layer: Vec<NetCapForLayer> = Vec::new();
         for (idx, value) in net_caps.drain() {
             per_aggressor.push(NetCapForAggressor {
-                aggressor_name: self.all_nets[idx].name.to_owned(),
+                aggressor_name: self.all_nets[idx].info.name.to_owned(),
                 cap: value,
             });
         }
@@ -95,9 +95,17 @@ impl Netlist {
         Ok(report)
     }
 
-    pub fn create_net(&mut self, name: &str, capacitance: f64) -> usize {
+    pub fn create_net(
+        &mut self,
+        name: &str,
+        capacitance: f64,
+        net_type: NetType,
+    ) -> usize {
         let net = Net {
-            name: name.to_owned(),
+            info: NetInfo {
+                name: name.to_owned(),
+                net_type,
+            },
             total_capacitance: capacitance,
             sub_nets: vec![],
         };
@@ -163,8 +171,22 @@ impl Netlist {
     }
 }
 
-pub struct Net {
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
+pub enum NetType {
+    GroundNode,
+    SubcktPin,
+    InstPin,
+    Other,
+}
+
+#[derive(Clone)]
+pub struct NetInfo {
     pub name: String,
+    pub net_type: NetType,
+}
+
+pub struct Net {
+    pub info: NetInfo,
     pub total_capacitance: f64,
     pub sub_nets: Vec<usize>,
     // instance_pins: ...
@@ -173,7 +195,7 @@ pub struct Net {
 impl std::fmt::Debug for Net {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Net")
-            .field("name", &self.name)
+            .field("name", &self.info.name)
             .field("total_capacitance", &self.total_capacitance)
             .field("sub_nets", &Vec::from_iter(self.sub_nets.iter().take(5)))
             .finish()

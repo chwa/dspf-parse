@@ -13,7 +13,7 @@ pub struct MainMenuUI {
     pub num_nets: usize,
     pub num_nodes: usize,
     pub num_elements: usize,
-    menu: ListSelect,
+    menu: ListSelect<String>,
 }
 
 impl MainMenuUI {
@@ -69,7 +69,7 @@ impl Render for MainMenuUI {
                 Block::new()
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
-                    .padding(Padding::horizontal(2)),
+                    .padding(Padding::horizontal(1)),
             ),
             layout[0],
         );
@@ -81,8 +81,7 @@ impl Render for MainMenuUI {
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded),
             )
-            .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
-            .highlight_symbol("> ");
+            .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
         // hack, how do I do this...
         self.menu
@@ -118,13 +117,13 @@ impl Render for MainMenuUI {
     }
 }
 
-pub struct ListSelect {
+pub struct ListSelect<T> {
     pub state: ListState,
-    pub items: Vec<String>,
+    pub items: Vec<T>,
 }
 
-impl ListSelect {
-    pub fn new(items: Vec<String>) -> ListSelect {
+impl<T> ListSelect<T> {
+    pub fn new(items: Vec<T>) -> Self {
         ListSelect {
             state: ListState::default(),
             items: items,

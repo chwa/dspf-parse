@@ -11,7 +11,7 @@ use pest_derive::Parser;
 
 use super::{
     cont::ContinuedLines,
-    netlist::{Netlist, Primitive},
+    netlist::{NetType, Netlist, Primitive},
 };
 
 #[derive(Parser)]
@@ -46,7 +46,7 @@ impl Dspf {
             .collect::<io::Result<Vec<_>>>()
             .unwrap();
 
-        let (_name, _pins, inner) = get_subckt(&lines);
+        let (_name, subckt_pins, inner) = get_subckt(&lines);
 
         let (net_blocks, inst_blocks) = get_net_blocks(inner);
 
@@ -67,7 +67,7 @@ impl Dspf {
         let mut netlist = Netlist::new();
         let mut nodes_map: HashMap<String, usize> = HashMap::new();
         // TODO: ground node
-        netlist.create_net("0", 0.0);
+        netlist.create_net("0", 0.0, NetType::GroundNode);
         nodes_map.insert(String::from("0"), 0);
 
         for (i, block) in net_blocks.iter().enumerate() {
@@ -77,7 +77,11 @@ impl Dspf {
             let net_name = pairs.next().unwrap().as_str();
             let net_cap = pairs.next().unwrap().as_str().parse::<f64>().unwrap();
 
-            let net_id = netlist.create_net(&net_name, net_cap);
+            let typ = match subckt_pins.contains(&net_name.to_owned()) {
+                true => NetType::SubcktPin,
+                false => NetType::Other,
+            };
+            let net_id = netlist.create_net(&net_name, net_cap, typ);
             // we add the net as a subnote here (most nets also appear in the *|S subnet definitions, but not all...)
             nodes_map.insert(net_name.to_owned(), net_id);
 
