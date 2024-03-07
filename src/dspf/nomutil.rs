@@ -2,17 +2,17 @@ use color_eyre::{eyre::Ok, Result};
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag},
-    character::complete::{alphanumeric1, line_ending, not_line_ending, space0},
-    combinator::{not, recognize},
+    character::complete::{
+        alphanumeric1, char, digit1, line_ending, not_line_ending, one_of, space0,
+    },
+    combinator::{map_res, not, opt, recognize},
     error::ParseError,
     multi::{many0, many0_count},
     sequence::{delimited, pair, preceded, terminated, tuple},
     IResult, Parser,
 };
 
-pub fn ws_no_cont<'a, F, O, E: ParseError<&'a str>>(
-    inner: F,
-) -> impl Parser<&'a str, O, E>
+pub fn ws_no_cont<'a, F, O, E: ParseError<&'a str>>(inner: F) -> impl Parser<&'a str, O, E>
 where
     F: Parser<&'a str, O, E>,
 {
@@ -61,7 +61,15 @@ pub fn optionally_quoted_string(input: &str) -> IResult<&str, &str> {
 pub fn identifier(input: &str) -> IResult<&str, &str> {
     recognize(pair(
         alphanumeric1,
-        many0_count(alt((alphanumeric1, tag("_"), tag("<"), tag(">")))),
+        many0_count(alt((
+            alphanumeric1,
+            tag("_"),
+            tag("<"),
+            tag(">"),
+            tag("#"),
+            tag("@"),
+            tag("/"),
+        ))),
     ))
     .parse(input)
 }
@@ -88,5 +96,27 @@ pub fn empty_or_comment(input: &str) -> IResult<&str, Vec<&str>> {
             line_ending,
         ),
     )))
+    .parse(input)
+}
+
+pub fn float(input: &str) -> IResult<&str, f64> {
+    map_res(
+        alt((
+            recognize(tuple((
+                opt(one_of("+-")),
+                digit1,
+                opt(preceded(char('.'), digit1)),
+                one_of("eE"),
+                opt(one_of("+-")),
+                digit1,
+            ))),
+            recognize(tuple((
+                opt(one_of("+-")),
+                digit1,
+                opt(preceded(char('.'), digit1)),
+            ))),
+        )),
+        |out: &str| out.parse::<f64>(),
+    )
     .parse(input)
 }
