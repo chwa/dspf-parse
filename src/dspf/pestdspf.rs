@@ -12,6 +12,7 @@ use pest_derive::Parser;
 use super::{
     cont::ContinuedLines,
     netlist::{NetType, Netlist},
+    LoadStatus,
 };
 
 #[derive(Parser)]
@@ -23,17 +24,6 @@ pub struct Dspf {
     pub file_path: String,
     pub file_size: u64,
     pub netlist: Option<Netlist>,
-}
-
-/// Load progress to be shared with another thread through Arc<Mutex>
-#[derive(Default)]
-pub struct LoadStatus {
-    pub total_lines: usize,
-    pub loaded_lines: usize,
-    pub total_nets: usize,
-    pub loaded_nets: usize,
-    pub total_inst_blocks: usize,
-    pub loaded_inst_blocks: usize,
 }
 
 impl Dspf {

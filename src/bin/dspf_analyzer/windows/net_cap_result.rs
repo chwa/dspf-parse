@@ -26,7 +26,7 @@ fn get_unicode_block<'a>(frac: f64) -> &'a str {
     }
 }
 
-fn line_bar(width: usize, frac: f64) -> Line<'static> {
+pub fn line_bar(width: usize, frac: f64) -> Line<'static> {
     if width < 2 || !frac.is_finite() || frac < 0.0_f64 || frac > 1.0_f64 {
         return Line::from(" ");
     }
@@ -39,13 +39,12 @@ fn line_bar(width: usize, frac: f64) -> Line<'static> {
     bar.push_str(get_unicode_block(bar_width % 1.0));
     let space = " ".repeat(width - bar_width.floor() as usize - 1);
     let color = Color::Rgb(
-        ((1.0 - frac).sqrt() * 255.0) as u8,
-        (frac.sqrt() * 255.0) as u8,
+        ((1.0 - frac).sqrt().sqrt() * 255.0) as u8,
+        (frac * 255.0) as u8,
         0,
     );
 
-    Line::from(vec![Span::raw(bar), Span::raw(space)])
-        .style(Style::new().fg(color).reversed())
+    Line::from(vec![Span::raw(bar), Span::raw(space)]).style(Style::new().fg(color).reversed())
 }
 
 impl NetCapResultUI {
@@ -57,39 +56,32 @@ impl NetCapResultUI {
     pub fn render_in_rect(&mut self, frame: &mut Frame, rect: &Rect) -> () {
         let rows_layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Length(3), Constraint::Fill(1)])
+            .constraints(vec![Constraint::Length(2), Constraint::Fill(1)])
             .split(*rect);
 
-        let text = Line::from(vec![
-            Span::styled("Total capacitance: ", Style::new().bold()),
-            Span::raw(eng_format(self.report.total_cap)),
-        ]);
+        frame.render_widget(Paragraph::new("\n  Aggressor net:"), rows_layout[0]);
 
-        frame.render_widget(
-            Paragraph::new(text).block(
-                Block::new()
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .padding(Padding::horizontal(1)),
-            ),
-            rows_layout[0],
-        );
-
-        let rows: Vec<_> = self
+        let mut rows: Vec<_> = self
             .report
-            .per_aggressor
+            .table
             .iter()
             .map(|x| {
                 let col1 = Line::raw(&x.aggressor_name);
                 let col2 = Line::raw(eng_format(x.cap));
                 let col3 = line_bar(8, x.cap / self.report.total_cap);
-                let col4 =
-                    Line::raw(format!("{:6.1}%", 100.0 * x.cap / self.report.total_cap));
-
-                // let col3 = Line::raw(&x.aggressor_name);
+                let col4 = Line::raw(format!("{:6.1}%", 100.0 * x.cap / self.report.total_cap));
                 Row::new(vec![col1, col2, col3, col4])
             })
             .collect();
+
+        let col1 = Line::raw("[TOTAL]");
+        let col2 = Line::raw(eng_format(self.report.total_cap));
+        let col3 = Line::raw("");
+        let col4 = Line::raw(format!("{:6.1}%", 100.0));
+        rows.insert(
+            0,
+            Row::new(vec![col1, col2, col3, col4]).style(Style::new().add_modifier(Modifier::BOLD)),
+        );
         // let rows = [
         //     Row::new(vec!["abc1", "def1", "ghi1"]),
         //     Row::new(vec!["abc2", "def2", "ghi2"]),
@@ -104,7 +96,7 @@ impl NetCapResultUI {
         let table = Table::new(rows, widths).block(
             Block::new()
                 .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
+                .border_type(BorderType::Double)
                 .padding(Padding::horizontal(1)),
         );
         frame.render_widget(table, rows_layout[1]);

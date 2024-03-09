@@ -1,3 +1,4 @@
+pub mod layer_cap_result;
 pub mod main_menu;
 pub mod net_cap_result;
 pub mod net_cap_selection;
@@ -90,9 +91,7 @@ impl Render for ProgressUI {
             ])
             .split(rows_layout[1]);
 
-        let block = Block::new()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
+        let block = Block::new().borders(Borders::ALL).border_type(BorderType::Rounded);
 
         let inner_area = block.inner(cols_layout[1]);
         let rows_layout_inner = Layout::default()

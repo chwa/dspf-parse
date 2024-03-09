@@ -11,7 +11,7 @@ use color_eyre::Result;
 use crate::{
     tui::Tui,
     windows::{
-        main_menu::MainMenuUI, net_cap_result::NetCapResultUI,
+        layer_cap_result::LayerCapResultUI, main_menu::MainMenuUI, net_cap_result::NetCapResultUI,
         net_cap_selection::NetCapSelectionUI, ProgressUI, Render, Window,
     },
 };
@@ -73,8 +73,7 @@ impl App {
                 let j = self.joinhandle.take().unwrap();
                 let dspf = j.join().unwrap();
                 self.dspf = Some(dspf);
-                self.current_ui =
-                    Window::MainMenu(MainMenuUI::new(&self.dspf.as_ref().unwrap()));
+                self.current_ui = Window::MainMenu(MainMenuUI::new(&self.dspf.as_ref().unwrap()));
             }
         }
     }
@@ -106,7 +105,17 @@ impl App {
                             .unwrap()
                             .get_net_capacitors(&net_name)
                             .unwrap();
+                        let report_layers = self
+                            .dspf
+                            .as_ref()
+                            .unwrap()
+                            .netlist
+                            .as_ref()
+                            .unwrap()
+                            .get_layer_capacitors(&net_name, None)
+                            .unwrap();
                         ui.result_ui = NetCapResultUI::new(report);
+                        ui.result_ui_layers = LayerCapResultUI::new(report_layers);
                         // self.current_ui = Window::NetCapResult(NetCapResultUI::new(report));
                     }
                     _ => {}
@@ -119,9 +128,8 @@ impl App {
 
     fn main_menu(&mut self, selection: usize) {
         if selection == 0 {
-            self.current_ui = Window::NetCapSelection(NetCapSelectionUI::new(
-                self.dspf.as_ref().unwrap(),
-            ));
+            self.current_ui =
+                Window::NetCapSelection(NetCapSelectionUI::new(self.dspf.as_ref().unwrap()));
         } else if selection == 3 {
             self.quit();
         }

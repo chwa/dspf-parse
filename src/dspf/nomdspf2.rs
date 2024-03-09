@@ -13,13 +13,17 @@ use nom::{
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
     FindSubstring, IResult, Parser,
 };
+use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, fs};
+
+use crate::dspf::LoadStatus;
 
 #[derive(Debug)]
 pub struct Dspf {
     pub info: DspfInfo,
-    pub filesize: u64,
-    pub netlist: Netlist,
+    pub file_path: String,
+    pub file_size: u64,
+    pub netlist: Option<Netlist>,
 }
 
 #[derive(Debug)]
@@ -38,10 +42,10 @@ struct Subckt {
 }
 
 impl Dspf {
-    pub fn load(file_path: &str) -> color_eyre::Result<Dspf> {
-        let filesize = fs::metadata(file_path)?.len();
-        let data = fs::read_to_string(file_path)?;
-        let (mut tail, info) = parse_dspf_info(&data).map_err(|err| err.to_owned())?;
+    pub fn load(file_path: &str, status: Option<Arc<Mutex<LoadStatus>>>) -> Dspf {
+        let file_size = fs::metadata(file_path).unwrap().len();
+        let data = fs::read_to_string(file_path).unwrap();
+        let (mut tail, info) = parse_dspf_info(&data).map_err(|err| err.to_owned()).unwrap();
 
         let mut instance_sections: Vec<(usize, &str)> = Vec::new();
 
@@ -49,6 +53,8 @@ impl Dspf {
         let mut nodes_map: HashMap<String, usize> = HashMap::new();
 
         let mut netlist = Netlist::default();
+        netlist.layer_map = info.layer_map.as_ref().unwrap().clone();
+
         for ground_name in &info.ground_nets {
             let node_idx = netlist.add_node(Node {
                 name: ground_name.to_owned(),
@@ -72,7 +78,7 @@ impl Dspf {
 
         loop {
             let (t, (net, nodes)) =
-                read_net_block(tail, &info.subckt.ports).map_err(|err| err.to_owned())?;
+                read_net_block(tail, &info.subckt.ports).map_err(|err| err.to_owned()).unwrap();
 
             let net_name = net.info.name.clone();
 
@@ -91,10 +97,12 @@ impl Dspf {
                 netlist.all_nodes[node_idx].of_net = net_idx;
             }
 
-            for node in nodes {
+            for mut node in nodes {
                 let name = node.name.clone();
+                node.of_net = net_idx;
                 let node_idx = netlist.add_node(node);
                 nodes_map.insert(name, node_idx);
+                netlist.all_nets[net_idx].sub_nets.push(node_idx);
             }
 
             // capture everything after this net section (until the next *|NET or end of subckt),
@@ -116,7 +124,7 @@ impl Dspf {
         );
 
         for (_x, inst_slice) in instance_sections {
-            let (_, instances) = parse_instances(inst_slice).map_err(|err| err.to_owned())?;
+            let (_, instances) = parse_instances(inst_slice).map_err(|err| err.to_owned()).unwrap();
             for inst in instances {
                 match inst {
                     ElementDef::R {
@@ -152,11 +160,12 @@ impl Dspf {
             }
         }
 
-        Ok(Dspf {
+        Dspf {
             info,
-            filesize,
-            netlist,
-        })
+            file_path: file_path.to_string(),
+            file_size,
+            netlist: Some(netlist),
+        }
     }
 }
 
@@ -164,7 +173,7 @@ impl Dspf {
 fn test_dspf() -> color_eyre::Result<()> {
     let file_path = "DSPF/nmos_trcp70.dspf";
 
-    let _dspf = Dspf::load(file_path)?;
+    let _dspf = Dspf::load(file_path, None);
     // dbg!(dspf);
 
     Ok(())

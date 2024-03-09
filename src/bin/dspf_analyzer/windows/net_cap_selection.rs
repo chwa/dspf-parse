@@ -1,12 +1,13 @@
 use crate::{app::Action, event::Event};
 use crossterm::event::KeyCode;
-use dspf_parse::dspf::netlist::{NetCapReport, NetInfo, NetType};
+use dspf_parse::dspf::netlist::{LayerCapReport, NetCapReport, NetInfo, NetType};
 use dspf_parse::dspf::Dspf;
 use globset::Glob;
 use ratatui::Frame;
 use ratatui::{prelude::*, widgets::*};
 use std::char;
 
+use super::layer_cap_result::LayerCapResultUI;
 use super::net_cap_result::NetCapResultUI;
 use super::{main_menu::ListSelect, Render};
 
@@ -18,6 +19,7 @@ pub struct NetCapSelectionUI {
     menu: ListSelect<NetInfo>,
     menu_height: u16,
     pub result_ui: NetCapResultUI,
+    pub result_ui_layers: LayerCapResultUI,
 }
 
 impl NetCapSelectionUI {
@@ -39,6 +41,7 @@ impl NetCapSelectionUI {
             menu: ListSelect::new(vec![]),
             menu_height: 1,
             result_ui: NetCapResultUI::new(NetCapReport::default()),
+            result_ui_layers: LayerCapResultUI::new(LayerCapReport::default()),
         };
 
         ui.search_changed();
@@ -58,12 +61,8 @@ impl NetCapSelectionUI {
         let filtered: Vec<NetInfo> = match glob {
             Ok(g) => {
                 let matcher = g.compile_matcher();
-                let mut nets: Vec<NetInfo> = self
-                    .nets
-                    .iter()
-                    .filter(|net| matcher.is_match(&net.name))
-                    .cloned()
-                    .collect();
+                let mut nets: Vec<NetInfo> =
+                    self.nets.iter().filter(|net| matcher.is_match(&net.name)).cloned().collect();
                 nets.sort_by_key(|info| (info.net_type.clone(), info.name.clone()));
                 nets
             }
@@ -94,26 +93,15 @@ impl Render for NetCapSelectionUI {
     fn render(&mut self, frame: &mut Frame) -> () {
         let rows_layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Length(3), Constraint::Fill(1)])
+            .constraints(vec![Constraint::Fill(1), Constraint::Length(1)])
             .split(frame.size());
-        let x = self
-            .selected_net
-            .as_ref()
-            .map(|info| info.name.clone())
-            .or(Some(String::new()));
-        let text = Line::from(vec![
-            Span::styled("Selected: ", Style::new().bold()),
-            Span::raw(x.unwrap()),
-        ]);
+
+        let x = self.selected_net.as_ref().map(|info| info.name.clone()).or(Some(String::new()));
+        let text = Line::from(vec![Span::raw("Selected: "), Span::raw(x.unwrap())]);
 
         frame.render_widget(
-            Paragraph::new(text).block(
-                Block::new()
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .padding(Padding::horizontal(1)),
-            ),
-            rows_layout[0],
+            Paragraph::new(text.style(Style::new().bold().add_modifier(Modifier::REVERSED))),
+            rows_layout[1],
         );
 
         let cols_layout = Layout::default()
@@ -121,46 +109,52 @@ impl Render for NetCapSelectionUI {
             .constraints(vec![
                 Constraint::Fill(1),
                 Constraint::Fill(2),
+                Constraint::Fill(2),
                 // Constraint::Length(3),
             ])
-            .split(rows_layout[1]);
+            .split(rows_layout[0]);
 
         let inner_rows_layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Fill(1), Constraint::Length(3)])
+            .constraints(vec![
+                Constraint::Length(2),
+                Constraint::Fill(1),
+                Constraint::Length(3),
+            ])
             .split(cols_layout[0]);
+
+        frame.render_widget(Paragraph::new("\n  Victim net:"), inner_rows_layout[0]);
 
         let menu = List::new(self.menu.items.iter().map(|net| match net.net_type {
             NetType::GroundNode => format!("⏚  {}", net.name),
             NetType::SubcktPin => format!("⎔  {}", net.name),
-            NetType::InstPin => format!("⌱  {}", net.name),
+            // NetType::InstPin => format!("⌱  {}", net.name),
             NetType::Other => format!("   {}", net.name),
         }))
         .block(
             Block::new()
                 .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
+                .border_type(BorderType::Plain)
                 .padding(Padding::horizontal(1)),
         )
         .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
-        self.menu_height = inner_rows_layout[0].as_size().height - 2;
+        self.menu_height = inner_rows_layout[1].as_size().height - 2;
         // hack, how do I do this...
-        self.menu
-            .state
-            .select(Some(self.menu.state.selected().unwrap_or(0)));
-        frame.render_stateful_widget(menu, inner_rows_layout[0], &mut self.menu.state);
+        self.menu.state.select(Some(self.menu.state.selected().unwrap_or(0)));
+        frame.render_stateful_widget(menu, inner_rows_layout[1], &mut self.menu.state);
 
         frame.render_widget(
             Paragraph::new(Span::from(&self.search_string)).block(
                 Block::new()
                     .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
+                    .border_type(BorderType::Plain)
                     .padding(Padding::horizontal(1)),
             ),
-            inner_rows_layout[1],
+            inner_rows_layout[2],
         );
         self.result_ui.render_in_rect(frame, &cols_layout[1]);
+        self.result_ui_layers.render_in_rect(frame, &cols_layout[2]);
     }
     fn handle_event(&mut self, event: &Event) -> Action {
         match event {
