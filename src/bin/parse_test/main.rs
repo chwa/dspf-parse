@@ -10,7 +10,7 @@ fn main() -> Result<()> {
         file_path = &args[1];
     }
 
-    let dspf = NomDspf::load(file_path);
+    let _dspf = NomDspf::load(file_path);
     // dbg!(dspf);
 
     Ok(())

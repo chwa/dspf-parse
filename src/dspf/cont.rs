@@ -33,16 +33,11 @@ impl<B: BufRead> Iterator for ContinuedLines<B> {
         while continuing {
             continuing = false;
 
-            let current = self
-                .peeked
-                .take()
-                .unwrap_or_else(|| self.inner_iterator.next());
+            let current = self.peeked.take().unwrap_or_else(|| self.inner_iterator.next());
             self.current_line += 1;
             match current {
                 Some(Ok(line)) => {
-                    buffer.push_str(
-                        &line.strip_prefix(self.continuation).get_or_insert(&line),
-                    );
+                    buffer.push_str(&line.strip_prefix(self.continuation).get_or_insert(&line));
 
                     self.peeked = Some(self.inner_iterator.next());
                     if let Some(Some(Ok(peeked_line))) = &self.peeked {

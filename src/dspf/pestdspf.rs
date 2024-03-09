@@ -42,11 +42,10 @@ impl Dspf {
         let filesize = f.metadata().unwrap().len();
         let f = BufReader::new(f);
 
-        let lines: Vec<(usize, String)> = ContinuedLines::from_buf(f)
-            .collect::<io::Result<Vec<_>>>()
-            .unwrap();
+        let lines: Vec<(usize, String)> =
+            ContinuedLines::from_buf(f).collect::<io::Result<Vec<_>>>().unwrap();
 
-        let (_name, subckt_pins, inner) = get_subckt(&lines);
+        let (_header, _name, subckt_pins, inner) = get_subckt(&lines);
 
         let (net_blocks, inst_blocks) = get_net_blocks(inner);
 
@@ -64,7 +63,7 @@ impl Dspf {
             };
         }
 
-        let mut netlist = Netlist::new();
+        let mut netlist = Netlist::default();
         let mut nodes_map: HashMap<String, usize> = HashMap::new();
         // TODO: ground node
         netlist.create_net("0", 0.0, NetType::GroundNode);
@@ -86,10 +85,8 @@ impl Dspf {
             nodes_map.insert(net_name.to_owned(), net_id);
 
             for (_, line) in it {
-                let element = DspfParser::parse(Rule::dspf_net_element, line)
-                    .unwrap()
-                    .next()
-                    .unwrap();
+                let element =
+                    DspfParser::parse(Rule::dspf_net_element, line).unwrap().next().unwrap();
                 match element.as_rule() {
                     Rule::dspf_pin_line => {
                         let mut inner = element.into_inner();
@@ -125,10 +122,8 @@ impl Dspf {
         for (i, block) in inst_blocks.iter().enumerate() {
             let it = block.iter();
             for (_, line) in it {
-                let element = DspfParser::parse(Rule::primitive_stmt, line)
-                    .unwrap()
-                    .next()
-                    .unwrap();
+                let element =
+                    DspfParser::parse(Rule::primitive_stmt, line).unwrap().next().unwrap();
 
                 match element.as_rule() {
                     Rule::resistor_stmt => {
@@ -138,8 +133,7 @@ impl Dspf {
                         let node_a: usize = *nodes_map.get(node_a).unwrap();
                         let node_b = element.next().unwrap().as_str();
                         let node_b: usize = *nodes_map.get(node_b).unwrap();
-                        let value =
-                            element.next().unwrap().as_str().parse::<f64>().unwrap();
+                        let value = element.next().unwrap().as_str().parse::<f64>().unwrap();
                         let item = element.next().unwrap();
                         let layer = match item.as_rule() {
                             Rule::layer_name => {
@@ -162,8 +156,7 @@ impl Dspf {
                         let node_a: usize = *nodes_map.get(node_a).unwrap();
                         let node_b = element.next().unwrap().as_str();
                         let node_b: usize = *nodes_map.get(node_b).unwrap();
-                        let value =
-                            element.next().unwrap().as_str().parse::<f64>().unwrap();
+                        let value = element.next().unwrap().as_str().parse::<f64>().unwrap();
                         let layers = (0_u8, 0_u8); // TODO
                         netlist.add_capacitor((node_a, node_b), value, layers);
                     }
@@ -205,7 +198,9 @@ fn list_of_strings(pair: Pair<'_, Rule>) -> Vec<String> {
 //         .collect()
 // }
 
-fn get_subckt(lines: &[(usize, String)]) -> (String, Vec<String>, &[(usize, String)]) {
+fn get_subckt(
+    lines: &[(usize, String)],
+) -> (&[(usize, String)], String, Vec<String>, &[(usize, String)]) {
     let mut lines_iter = lines.iter();
     let subckt_start = lines_iter.position(|l| l.1.starts_with(".SUBCKT")).unwrap();
     let subckt_end = lines_iter.position(|l| l.1.starts_with(".ENDS")).unwrap();
@@ -214,8 +209,9 @@ fn get_subckt(lines: &[(usize, String)]) -> (String, Vec<String>, &[(usize, Stri
     let name = pairs.next().unwrap().as_str().to_owned();
     let pins = list_of_strings(pairs.next().unwrap());
 
+    let header = &lines[..subckt_start];
     let inner = &lines[subckt_start + 1..subckt_end];
-    (name, pins, inner)
+    (header, name, pins, inner)
 }
 
 type Block<'a> = &'a [(usize, String)];
@@ -228,17 +224,17 @@ fn get_net_blocks(lines: &[(usize, String)]) -> (Vec<Block>, Vec<Block>) {
         if text.starts_with("*|NET") {
             let net_start = i;
             let mut net_end = i;
-            while let Some((i, _)) = it.next_if(|(_, (_, text))| {
-                text.starts_with("*|") && !text.starts_with("*|NET")
-            }) {
+            while let Some((i, _)) =
+                it.next_if(|(_, (_, text))| text.starts_with("*|") && !text.starts_with("*|NET"))
+            {
                 net_end = i;
             }
             net_blocks.push(&lines[net_start..=net_end]);
 
             let inst_start = net_end + 1;
             let mut inst_end = inst_start;
-            while let Some((i, _)) = it
-                .next_if(|(_, (_, text))| text.starts_with("R") || text.starts_with("C"))
+            while let Some((i, _)) =
+                it.next_if(|(_, (_, text))| text.starts_with("R") || text.starts_with("C"))
             {
                 inst_end = i;
             }

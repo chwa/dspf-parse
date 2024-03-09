@@ -1,5 +1,8 @@
 #![allow(dead_code)]
-use super::nomutil::{empty_or_comment, float, identifier, optionally_quoted_string, ws};
+use super::{
+    netlist2::{Capacitor, LayerInfo, Net, NetInfo, NetType, Netlist, Node, NodeType, Resistor},
+    nomutil::{empty_or_comment, float, identifier, optionally_quoted_string, ws},
+};
 use color_eyre;
 use nom::{
     branch::alt,
@@ -10,51 +13,28 @@ use nom::{
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
     FindSubstring, IResult, Parser,
 };
-use std::{char, collections::HashMap, fmt, fs};
-
-#[derive(Default)]
-pub struct Netlist {
-    pub all_nets: Vec<Net>,
-    pub nets_map: HashMap<String, usize>,
-    pub all_nodes: Vec<Node>,
-    pub capacitors: Vec<Capacitor>,
-}
-
-impl Netlist {
-    fn add_net(&mut self, net: Net) -> usize {
-        self.nets_map.insert(net.info.name.clone(), self.all_nets.len());
-        self.all_nets.push(net);
-        self.all_nets.len() - 1
-    }
-    fn add_node(&mut self, node: Node) -> usize {
-        self.all_nodes.push(node);
-        self.all_nodes.len() - 1
-    }
-}
-
-impl fmt::Debug for Netlist {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("Netlist")
-            .field("all_nets[truncated]", &&self.all_nets[..6])
-            .field(
-                "nets_map[truncated]",
-                &self
-                    .nets_map
-                    .iter()
-                    .take(6)
-                    .map(|(s, n)| (s.as_str(), *n))
-                    .collect::<Vec<(&str, usize)>>(),
-            )
-            .field("all_nodes[truncated]", &&self.all_nodes[..6])
-            .finish()
-    }
-}
+use std::{collections::HashMap, fs};
 
 #[derive(Debug)]
 pub struct Dspf {
     pub info: DspfInfo,
     pub filesize: u64,
     pub netlist: Netlist,
+}
+
+#[derive(Debug)]
+pub struct DspfInfo {
+    version: String,
+    header: HashMap<String, String>,
+    subckt: Subckt,
+    ground_nets: Vec<String>,
+    layer_map: Option<HashMap<u8, String>>,
+}
+
+#[derive(Debug)]
+struct Subckt {
+    name: String,
+    ports: Vec<String>,
 }
 
 impl Dspf {
@@ -96,10 +76,6 @@ impl Dspf {
 
             let net_name = net.info.name.clone();
 
-            if net_name.starts_with("X142/X234/1") {
-                dbg!(&net.info.name);
-            }
-
             let net_idx = netlist.add_net(net);
             if nodes.len() == 0 {
                 // special case, if the net has no subnodes listed explicitly,
@@ -128,7 +104,7 @@ impl Dspf {
                 tail = &t[n + 1..];
             } else if let Some(n) = t.find_substring("\n.ENDS") {
                 instance_sections.push((123, &t[..n]));
-                tail = &t[n + 1..];
+                // tail = &t[n + 1..];
                 break;
             } else {
                 panic!("No .ENDS statement found");
@@ -161,7 +137,6 @@ impl Dspf {
                         value,
                         layers,
                     } => {
-                        // dbg!(&nodes);
                         let c = Capacitor {
                             nodes: (nodes_map[&nodes.0], nodes_map[&nodes.1]),
                             value,
@@ -177,8 +152,6 @@ impl Dspf {
             }
         }
 
-        // dbg!(instance_sections.len());
-
         Ok(Dspf {
             info,
             filesize,
@@ -190,27 +163,11 @@ impl Dspf {
 #[test]
 fn test_dspf() -> color_eyre::Result<()> {
     let file_path = "DSPF/nmos_trcp70.dspf";
-    let file_path = "DSPF/large_ckt.dspf";
 
-    let dspf = Dspf::load(file_path)?;
+    let _dspf = Dspf::load(file_path)?;
     // dbg!(dspf);
 
     Ok(())
-}
-
-#[derive(Debug)]
-struct Subckt {
-    name: String,
-    ports: Vec<String>,
-}
-
-#[derive(Debug)]
-pub struct DspfInfo {
-    version: String,
-    header: HashMap<String, String>,
-    subckt: Subckt,
-    ground_nets: Vec<String>,
-    layer_map: Option<HashMap<u8, String>>,
 }
 
 fn parse_dspf_info(input: &str) -> IResult<&str, DspfInfo> {
@@ -359,32 +316,6 @@ fn parse_net_def(input: &str) -> IResult<&str, NetDef> {
     ))
 }
 
-#[derive(Debug)]
-pub enum NodeType {
-    SubcktPin {
-        pin_type: char,
-        pin_cap: f64,
-    },
-    InstPin {
-        inst_name: String,
-        pin_name: String,
-        pin_type: char,
-        pin_cap: f64,
-    },
-    Ground,
-    Other,
-}
-
-#[derive(Debug)]
-pub struct Node {
-    pub name: String,
-    pub info: NodeType,
-    pub coord: Option<(f64, f64)>,
-
-    pub capacitors: Vec<usize>,
-    pub of_net: usize,
-}
-
 fn slash_comment(input: &str) -> IResult<&str, String> {
     preceded(tag("//"), not_line_ending)
         .parse(input)
@@ -471,27 +402,6 @@ fn parse_nodedefs(input: &str) -> IResult<&str, Vec<Node>> {
     many0(parse_nodedef)(input)
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
-pub enum NetType {
-    GroundNode,
-    SubcktPin,
-    Other,
-}
-
-#[derive(Clone, Debug)]
-pub struct NetInfo {
-    pub name: String,
-    pub net_type: NetType,
-}
-
-#[derive(Debug)]
-pub struct Net {
-    pub info: NetInfo,
-    pub total_capacitance: f64,
-    pub sub_nets: Vec<usize>,
-    pub resistors: Vec<Resistor>,
-}
-
 fn read_net_block<'a>(
     input: &'a str,
     subckt_pins: &Vec<String>,
@@ -524,31 +434,6 @@ fn read_net_block<'a>(
     ))
 }
 
-#[derive(Debug)]
-pub struct Resistor {
-    nodes: (usize, usize),
-    value: f64,
-    layer: u8,
-}
-#[derive(Debug)]
-pub struct ResistorDef {
-    nodes: (String, String),
-    value: f64,
-    layer: Option<String>,
-}
-
-#[derive(Debug)]
-pub struct Capacitor {
-    nodes: (usize, usize),
-    value: f64,
-    layers: LayerInfo,
-}
-#[derive(Debug)]
-pub struct CapacitorDef {
-    nodes: (String, String),
-    value: f64,
-}
-
 enum ElementDef {
     R {
         nodes: (String, String),
@@ -561,10 +446,6 @@ enum ElementDef {
         layers: LayerInfo,
     },
 }
-
-// fn non_space(input: &str) -> IResult<&str, &str> {
-//     take_while(|c| !(is_space(c) || is_newline(c)))(input)
-// }
 
 fn parse_dollar_params(input: &str) -> IResult<&str, Vec<(String, String)>> {
     many1(map(
@@ -595,13 +476,6 @@ fn parse_resistor(input: &str) -> IResult<&str, ElementDef> {
             layer: layer.map(|s| s.to_string()),
         },
     ))
-}
-
-#[derive(Debug)]
-enum LayerInfo {
-    Single(u8),
-    Pair(u8, u8),
-    None,
 }
 
 fn parse_capacitor(input: &str) -> IResult<&str, ElementDef> {
