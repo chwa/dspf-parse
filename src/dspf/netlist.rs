@@ -1,6 +1,7 @@
 use color_eyre::{eyre::ContextCompat, Result};
 use std::collections::HashMap;
 
+#[derive(Default)]
 pub struct Netlist {
     pub all_nets: Vec<Net>,
     pub nets_map: HashMap<String, usize>,
@@ -42,15 +43,6 @@ pub struct NetCapReport {
 }
 
 impl Netlist {
-    pub fn new() -> Self {
-        Netlist {
-            all_nets: Vec::new(),
-            nets_map: HashMap::new(),
-            all_nodes: Vec::new(),
-            capacitors: Vec::new(),
-        }
-    }
-
     pub fn get_net(&self, net: &str) -> Result<&Net> {
         let idx = self.nets_map.get(net).context("Net name not found")?;
         Ok(&self.all_nets[*idx])

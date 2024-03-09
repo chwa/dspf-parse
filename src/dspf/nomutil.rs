@@ -1,4 +1,3 @@
-use color_eyre::{eyre::Ok, Result};
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag},
@@ -97,6 +96,10 @@ pub fn empty_or_comment(input: &str) -> IResult<&str, Vec<&str>> {
         ),
     )))
     .parse(input)
+}
+
+pub fn slash_comment(input: &str) -> IResult<&str, &str> {
+    preceded(tag("//"), not_line_ending).parse(input)
 }
 
 pub fn float(input: &str) -> IResult<&str, f64> {
