@@ -66,6 +66,7 @@ pub fn identifier(input: &str) -> IResult<&str, &str> {
             tag("<"),
             tag(">"),
             tag("#"),
+            tag("%"), // seen as the names of split subckt pins
             tag("@"),
             tag("/"),
         ))),
