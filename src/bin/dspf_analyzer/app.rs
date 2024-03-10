@@ -1,4 +1,5 @@
 use std::{
+    rc::Rc,
     sync::{Arc, Mutex},
     thread::{self, JoinHandle},
 };
@@ -11,8 +12,8 @@ use color_eyre::Result;
 use crate::{
     tui::Tui,
     windows::{
-        layer_cap_result::LayerCapResultUI, main_menu::MainMenuUI, net_cap_result::NetCapResultUI,
-        net_cap_selection::NetCapSelectionUI, ProgressUI, Render, Window,
+        layer_cap_result::LayerCapResultUI, main_menu::MainMenuUI, net_cap_main::NetCapSelectionUI,
+        net_cap_result::NetCapResultUI, ProgressUI, Render, Window,
     },
 };
 
@@ -26,7 +27,7 @@ pub(crate) enum Action {
 pub struct App {
     pub tui: Tui,
     pub running: bool,
-    pub dspf: Option<Dspf>,
+    pub dspf: Option<Rc<Dspf>>,
     current_ui: Window,
     pub joinhandle: Option<JoinHandle<Dspf>>,
 }
@@ -38,7 +39,7 @@ impl App {
             tui,
             running: true,
             dspf: None,
-            current_ui: Window::blank(),
+            current_ui: Default::default(),
             joinhandle: None,
         })
     }
@@ -72,7 +73,7 @@ impl App {
             if j.is_finished() {
                 let j = self.joinhandle.take().unwrap();
                 let dspf = j.join().unwrap();
-                self.dspf = Some(dspf);
+                self.dspf = Some(Rc::new(dspf));
                 self.current_ui = Window::MainMenu(MainMenuUI::new(&self.dspf.as_ref().unwrap()));
             }
         }
@@ -128,8 +129,9 @@ impl App {
 
     fn main_menu(&mut self, selection: usize) {
         if selection == 0 {
-            self.current_ui =
-                Window::NetCapSelection(NetCapSelectionUI::new(self.dspf.as_ref().unwrap()));
+            self.current_ui = Window::NetCapSelection(NetCapSelectionUI::new(
+                self.dspf.as_ref().unwrap().clone(),
+            ));
         } else if selection == 3 {
             self.quit();
         }

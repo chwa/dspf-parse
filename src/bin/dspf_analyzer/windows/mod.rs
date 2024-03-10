@@ -1,7 +1,7 @@
 pub mod layer_cap_result;
 pub mod main_menu;
+pub mod net_cap_main;
 pub mod net_cap_result;
-pub mod net_cap_selection;
 
 use std::sync::{Arc, Mutex};
 
@@ -13,7 +13,7 @@ use ratatui::{prelude::*, widgets::*};
 use crate::{app::Action, event::Event};
 
 use self::main_menu::MainMenuUI;
-use self::net_cap_selection::NetCapSelectionUI;
+use self::net_cap_main::NetCapSelectionUI;
 
 pub trait Render {
     fn render(&mut self, frame: &mut Frame) -> ();
@@ -26,28 +26,29 @@ pub enum Window {
     NetCapSelection(NetCapSelectionUI),
     Progress(ProgressUI),
 }
+use Window as W;
 
-impl Window {
-    pub fn blank() -> Self {
-        Window::Blank(BlankUI {})
+impl<'a> Default for Window {
+    fn default() -> Self {
+        W::Blank(BlankUI {})
     }
 }
 
-impl Render for Window {
+impl<'a> Render for Window {
     fn render(&mut self, frame: &mut Frame) -> () {
         match self {
-            Window::Blank(ui) => ui.render(frame),
-            Window::MainMenu(ui) => ui.render(frame),
-            Window::NetCapSelection(ui) => ui.render(frame),
-            Window::Progress(ui) => ui.render(frame),
+            W::Blank(ui) => ui.render(frame),
+            W::MainMenu(ui) => ui.render(frame),
+            W::NetCapSelection(ui) => ui.render(frame),
+            W::Progress(ui) => ui.render(frame),
         }
     }
     fn handle_event(&mut self, event: &Event) -> Action {
         match self {
-            Window::Blank(ui) => ui.handle_event(event),
-            Window::MainMenu(ui) => ui.handle_event(event),
-            Window::NetCapSelection(ui) => ui.handle_event(event),
-            Window::Progress(ui) => ui.handle_event(event),
+            W::Blank(ui) => ui.handle_event(event),
+            W::MainMenu(ui) => ui.handle_event(event),
+            W::NetCapSelection(ui) => ui.handle_event(event),
+            W::Progress(ui) => ui.handle_event(event),
         }
     }
 }

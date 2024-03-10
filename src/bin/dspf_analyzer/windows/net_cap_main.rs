@@ -6,13 +6,14 @@ use globset::Glob;
 use ratatui::Frame;
 use ratatui::{prelude::*, widgets::*};
 use std::char;
+use std::rc::Rc;
 
 use super::layer_cap_result::LayerCapResultUI;
 use super::net_cap_result::NetCapResultUI;
 use super::{main_menu::ListSelect, Render};
 
 pub struct NetCapSelectionUI {
-    pub filename: String,
+    dspf: Rc<Dspf>,
     pub nets: Vec<NetInfo>,
     pub selected_net: Option<NetInfo>,
     pub search_string: String,
@@ -23,7 +24,7 @@ pub struct NetCapSelectionUI {
 }
 
 impl NetCapSelectionUI {
-    pub fn new(dspf: &Dspf) -> Self {
+    pub fn new(dspf: Rc<Dspf>) -> Self {
         let mut nets: Vec<NetInfo> = dspf
             .netlist
             .as_ref()
@@ -34,7 +35,7 @@ impl NetCapSelectionUI {
             .collect();
         nets.sort_by_key(|info| (info.net_type.clone(), info.name.clone()));
         let mut ui = Self {
-            filename: dspf.file_path.to_owned(),
+            dspf: dspf,
             nets: nets,
             selected_net: None,
             search_string: String::from("*"),
