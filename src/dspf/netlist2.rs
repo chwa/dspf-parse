@@ -109,9 +109,15 @@ impl Netlist {
             b.cap.partial_cmp(&a.cap).unwrap().then(a.aggressor_name.cmp(&b.aggressor_name))
         });
 
+        let mut total_cap = net.total_capacitance;
+
+        if total_cap.is_nan() {
+            total_cap = per_aggressor.iter().map(|x| x.cap).sum()
+        }
+
         let report = NetCapReport {
             net_name: net_name.to_owned(),
-            total_cap: net.total_capacitance,
+            total_cap: total_cap,
             table: per_aggressor,
         };
         Ok(report)
