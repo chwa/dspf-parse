@@ -126,17 +126,12 @@ impl Render for NetCapSelectionUI {
         frame.render_widget(Paragraph::new("\n  Victim net:"), inner_rows_layout[0]);
 
         let menu = List::new(self.menu.items.iter().map(|net| match net.net_type {
-            NetType::GroundNode => format!("⏚  {}", net.name),
-            NetType::SubcktPin => format!("⎔  {}", net.name),
+            NetType::GroundNode => format!(" ⏚  {}", net.name),
+            NetType::SubcktPin => format!(" ⎔  {}", net.name),
             // NetType::InstPin => format!("⌱  {}", net.name),
-            NetType::Other => format!("   {}", net.name),
+            NetType::Other => format!("    {}", net.name),
         }))
-        .block(
-            Block::new()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Plain)
-                .padding(Padding::horizontal(1)),
-        )
+        .block(Block::new().borders(Borders::ALL).border_type(BorderType::Plain))
         .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
         self.menu_height = inner_rows_layout[1].as_size().height - 2;

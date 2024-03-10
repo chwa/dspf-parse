@@ -89,7 +89,7 @@ impl NetCapResultUI {
         // ];
         let widths = [
             Constraint::Fill(2),
-            Constraint::Length(11),
+            Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(7),
         ];
