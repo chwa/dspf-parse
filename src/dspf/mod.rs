@@ -13,6 +13,9 @@ pub use nomdspf2::Dspf;
 /// Load progress to be shared with another thread through Arc<Mutex>
 #[derive(Default)]
 pub struct LoadStatus {
+    pub total_bytes: usize,
+    pub loaded_bytes: usize,
+
     pub total_lines: usize,
     pub loaded_lines: usize,
     pub total_nets: usize,

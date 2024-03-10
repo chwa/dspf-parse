@@ -1,29 +1,39 @@
 use crate::{app::Action, event::Event};
 use crossterm::event::KeyCode;
-use dspf_parse::dspf::netlist::{LayerCapReport, NetCapReport, NetInfo, NetType};
+use dspf_parse::dspf::netlist::{LayerCapReport, NetCapReport, NetInfo};
 use dspf_parse::dspf::Dspf;
-use globset::Glob;
 use ratatui::Frame;
 use ratatui::{prelude::*, widgets::*};
-use std::char;
 use std::rc::Rc;
 
-use super::layer_cap_result::LayerCapResultUI;
-use super::net_cap_result::NetCapResultUI;
-use super::{main_menu::ListSelect, Render};
+use super::layer_cap_result::LayerCapResultWidget;
+use super::net_cap_result::NetCapResultWidget;
+use super::net_cap_selection::NetSelectionWidget;
+use super::Render;
 
-pub struct NetCapSelectionUI {
-    dspf: Rc<Dspf>,
-    pub nets: Vec<NetInfo>,
-    pub selected_net: Option<NetInfo>,
-    pub search_string: String,
-    menu: ListSelect<NetInfo>,
-    menu_height: u16,
-    pub result_ui: NetCapResultUI,
-    pub result_ui_layers: LayerCapResultUI,
+#[derive(PartialEq)]
+enum FocusUI {
+    Selection,
+    Result,
+    Layers,
 }
 
-impl NetCapSelectionUI {
+pub fn focus_style(focus: bool) -> (BorderType, Style) {
+    match focus {
+        true => (BorderType::Thick, Style::new().bold()),
+        false => (BorderType::Rounded, Style::new()),
+    }
+}
+
+pub struct NetCapMainUI {
+    dspf: Rc<Dspf>,
+    net_selection_widget: NetSelectionWidget,
+    net_cap_result_widget: NetCapResultWidget,
+    layer_cap_result_widget: LayerCapResultWidget,
+    focus: FocusUI,
+}
+
+impl NetCapMainUI {
     pub fn new(dspf: Rc<Dspf>) -> Self {
         let mut nets: Vec<NetInfo> = dspf
             .netlist
@@ -34,179 +44,163 @@ impl NetCapSelectionUI {
             .map(|net| net.info.clone())
             .collect();
         nets.sort_by_key(|info| (info.net_type.clone(), info.name.clone()));
+
         let mut ui = Self {
             dspf: dspf,
-            nets: nets,
-            selected_net: None,
-            search_string: String::from("*"),
-            menu: ListSelect::new(vec![]),
-            menu_height: 1,
-            result_ui: NetCapResultUI::new(NetCapReport::default()),
-            result_ui_layers: LayerCapResultUI::new(LayerCapReport::default()),
+            net_selection_widget: NetSelectionWidget::new(nets),
+            net_cap_result_widget: NetCapResultWidget::new(NetCapReport::default()),
+            layer_cap_result_widget: LayerCapResultWidget::new(LayerCapReport::default()),
+            focus: FocusUI::Selection,
         };
-
-        ui.search_changed();
-
+        ui.highlight_focused();
+        ui.handle_action(Action::SelectNet(
+            ui.net_selection_widget.nets[0].name.clone(),
+        ));
         ui
     }
-    fn selection_changed(&mut self, selection: Option<usize>) {
-        self.selected_net = match selection {
-            Some(i) => self.menu.items.get(i).cloned(),
-            None => None,
-        }
-        // self.selected_net = self.menu.items.get(i).unwrap().to_owned();
+
+    fn tab(&mut self) {
+        use FocusUI::*;
+        self.focus = match self.focus {
+            Selection => Result,
+            Result => Selection, // skip layers for now
+            Layers => Selection,
+        };
+        self.highlight_focused()
     }
 
-    fn search_changed(&mut self) {
-        let glob = Glob::new(&self.search_string);
-        let filtered: Vec<NetInfo> = match glob {
-            Ok(g) => {
-                let matcher = g.compile_matcher();
-                let mut nets: Vec<NetInfo> =
-                    self.nets.iter().filter(|net| matcher.is_match(&net.name)).cloned().collect();
-                nets.sort_by_key(|info| (info.net_type.clone(), info.name.clone()));
-                nets
+    fn highlight_focused(&mut self) {
+        self.net_selection_widget.focus = self.focus == FocusUI::Selection;
+        self.net_cap_result_widget.focus = self.focus == FocusUI::Result;
+        self.layer_cap_result_widget.focus = self.focus == FocusUI::Layers;
+    }
+
+    fn handle_action(&mut self, action: Action) -> Action {
+        match action {
+            Action::SelectNet(net_name) => {
+                let report =
+                    self.dspf.netlist.as_ref().unwrap().get_net_capacitors(&net_name).unwrap();
+                let report_layers = self
+                    .dspf
+                    .netlist
+                    .as_ref()
+                    .unwrap()
+                    .get_layer_capacitors(&net_name, None)
+                    .unwrap();
+                self.net_cap_result_widget = NetCapResultWidget::new(report);
+                self.layer_cap_result_widget = LayerCapResultWidget::new(report_layers);
+                self.highlight_focused();
             }
-            Err(_) => Vec::new(),
-        };
-
-        let selection = match filtered.is_empty() {
-            true => None,
-            false => Some(0),
-        };
-        self.menu = ListSelect::new(filtered);
-        self.menu.select_state(selection);
-        self.selection_changed(selection);
-    }
-
-    fn backspace(&mut self) {
-        self.search_string.pop();
-        self.search_changed();
-    }
-
-    fn search_char(&mut self, c: char) {
-        self.search_string.push(c);
-        self.search_changed();
+            Action::SelectNetPair(net1, net2) => {
+                let report_layers = self
+                    .dspf
+                    .netlist
+                    .as_ref()
+                    .unwrap()
+                    .get_layer_capacitors(&net1, Some(&net2))
+                    .unwrap();
+                self.layer_cap_result_widget = LayerCapResultWidget::new(report_layers);
+                self.highlight_focused();
+            }
+            _ => {}
+        }
+        Action::None
     }
 }
 
-impl Render for NetCapSelectionUI {
-    fn render(&mut self, frame: &mut Frame) -> () {
+impl Render for NetCapMainUI {
+    fn render(&mut self, frame: &mut Frame) {
         let rows_layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Fill(1), Constraint::Length(1)])
+            .constraints(vec![
+                Constraint::Length(1),
+                Constraint::Fill(1),
+                Constraint::Length(1),
+            ])
             .split(frame.size());
-
-        let x = self.selected_net.as_ref().map(|info| info.name.clone()).or(Some(String::new()));
-        let text = Line::from(vec![Span::raw("Selected: "), Span::raw(x.unwrap())]);
-
-        frame.render_widget(
-            Paragraph::new(text.style(Style::new().bold().add_modifier(Modifier::REVERSED))),
-            rows_layout[1],
-        );
-
         let cols_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![
                 Constraint::Fill(1),
                 Constraint::Fill(2),
                 Constraint::Fill(2),
-                // Constraint::Length(3),
             ])
-            .split(rows_layout[0]);
+            .split(rows_layout[1]);
 
-        let inner_rows_layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(vec![
-                Constraint::Length(2),
-                Constraint::Fill(1),
-                Constraint::Length(3),
-            ])
-            .split(cols_layout[0]);
+        // let titles = vec![" Victim net: ", " Aggressor net: ", " Layer pairs: "];
 
-        frame.render_widget(Paragraph::new("\n  Victim net:"), inner_rows_layout[0]);
+        // let selected = match self.focus {
+        //     FocusUI::Selection => 0,
+        //     FocusUI::Result => 1,
+        //     FocusUI::Layers => 2,
+        // };
 
-        let menu = List::new(self.menu.items.iter().map(|net| match net.net_type {
-            NetType::GroundNode => format!(" ⏚  {}", net.name),
-            NetType::SubcktPin => format!(" ⎔  {}", net.name),
-            // NetType::InstPin => format!("⌱  {}", net.name),
-            NetType::Other => format!("    {}", net.name),
-        }))
-        .block(Block::new().borders(Borders::ALL).border_type(BorderType::Plain))
-        .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
+        // let block_inner: Vec<_> = titles
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(i, title)| {
+        //         let b = Block::default()
+        //             .title(*title)
+        //             .title_alignment(Alignment::Center)
+        //             .title_style(match i == selected {
+        //                 true => Style::new().bold(),
+        //                 false => Style::new(),
+        //             })
+        //             .borders(Borders::ALL)
+        //             .border_type(match i == selected {
+        //                 true => BorderType::Thick,
+        //                 false => BorderType::Plain,
+        //             });
+        //         let inner = b.inner(cols_layout[i]);
+        //         frame.render_widget(b, cols_layout[i]);
+        //         inner
+        //     })
+        //     .collect();
 
-        self.menu_height = inner_rows_layout[1].as_size().height - 2;
-        // hack, how do I do this...
-        self.menu.state.select(Some(self.menu.state.selected().unwrap_or(0)));
-        frame.render_stateful_widget(menu, inner_rows_layout[1], &mut self.menu.state);
+        frame.render_widget(&mut self.net_selection_widget, cols_layout[0]);
+
+        // self.selection_ui.render_in_rect(frame, &cols_layout[0]);
+        frame.render_widget(&mut self.net_cap_result_widget, cols_layout[1]);
+        frame.render_widget(&mut self.layer_cap_result_widget, cols_layout[2]);
+
+        let header = vec![Line::from("dspf_analyzer v0.0.0")];
 
         frame.render_widget(
-            Paragraph::new(Span::from(&self.search_string)).block(
-                Block::new()
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Plain)
-                    .padding(Padding::horizontal(1)),
-            ),
-            inner_rows_layout[2],
+            Paragraph::new(header)
+                .style(Style::new().black().on_white())
+                .alignment(Alignment::Left),
+            rows_layout[0],
         );
-        self.result_ui.render_in_rect(frame, &cols_layout[1]);
-        self.result_ui_layers.render_in_rect(frame, &cols_layout[2]);
+        let footer = vec![Line::from(self.dspf.as_ref().file_path.clone())];
+        // let text = vec![Line::from("This is just the status bar.")];
+
+        frame.render_widget(
+            Paragraph::new(footer)
+                .style(Style::new().black().on_white())
+                .alignment(Alignment::Left),
+            rows_layout[2],
+        );
     }
+
     fn handle_event(&mut self, event: &Event) -> Action {
         match event {
             Event::Tick => Action::None,
             Event::Key(key_event) => {
                 if key_event.kind == crossterm::event::KeyEventKind::Press {
                     match key_event.code {
-                        KeyCode::Up => {
-                            let pos = self.menu.up(1);
-                            self.selection_changed(Some(pos));
-                            let net_name = self.menu.items[pos].name.to_owned();
-                            Action::SelectNet(net_name)
-                        }
-                        KeyCode::Down => {
-                            let pos = self.menu.down(1);
-                            self.selection_changed(Some(pos));
-                            let net_name = self.menu.items[pos].name.to_owned();
-                            Action::SelectNet(net_name)
-                        }
-                        KeyCode::PageUp => {
-                            let pos = self.menu.up((self.menu_height - 1).into());
-                            self.selection_changed(Some(pos));
-                            let net_name = self.menu.items[pos].name.to_owned();
-                            Action::SelectNet(net_name)
-                        }
-                        KeyCode::PageDown => {
-                            let pos = self.menu.down((self.menu_height - 1).into());
-                            self.selection_changed(Some(pos));
-                            let net_name = self.menu.items[pos].name.to_owned();
-                            Action::SelectNet(net_name)
-                        }
-                        KeyCode::Enter => {
-                            let idx = self.menu.state.selected().unwrap();
-                            let net_name = self.menu.items[idx].name.to_owned();
-                            Action::SelectNet(net_name)
-                        }
-                        KeyCode::Esc => Action::Quit,
-                        KeyCode::Backspace => {
-                            self.backspace();
-                            match self.menu.state.selected() {
-                                Some(idx) => {
-                                    let net_name = self.menu.items[idx].name.to_owned();
-                                    Action::SelectNet(net_name)
-                                }
-                                None => Action::None,
-                            }
-                        }
-                        KeyCode::Char(c) => {
-                            self.search_char(c);
-                            if let Some(idx) = self.menu.state.selected() {
-                                let net_name = self.menu.items[idx].name.to_owned();
-                                return Action::SelectNet(net_name);
-                            }
+                        KeyCode::Tab => {
+                            self.tab();
                             Action::None
                         }
-                        _ => Action::None,
+                        KeyCode::Esc => Action::Esc,
+                        _ => {
+                            let action = match self.focus {
+                                FocusUI::Selection => self.net_selection_widget.handle_event(event),
+                                FocusUI::Result => self.net_cap_result_widget.handle_event(event),
+                                FocusUI::Layers => self.layer_cap_result_widget.handle_event(event),
+                            };
+                            self.handle_action(action)
+                        }
                     }
                 } else {
                     Action::None

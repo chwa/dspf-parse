@@ -2,13 +2,16 @@ use crate::util::eng_format;
 use crate::{app::Action, event::Event};
 use crossterm::event::KeyCode;
 use dspf_parse::dspf::netlist::NetCapReport;
-use ratatui::Frame;
 use ratatui::{prelude::*, widgets::*};
 
-use super::Render;
+use super::main_menu::TableSelect;
+use super::net_cap_main::focus_style;
 
-pub struct NetCapResultUI {
+pub struct NetCapResultWidget {
+    pub focus: bool,
     report: NetCapReport,
+    menu: TableSelect<String>,
+    menu_height: u16,
 }
 
 // https://docs.rs/ratatui/latest/src/ratatui/widgets/gauge.rs.html#221
@@ -47,19 +50,38 @@ pub fn line_bar(width: usize, frac: f64) -> Line<'static> {
     Line::from(vec![Span::raw(bar), Span::raw(space)]).style(Style::new().fg(color).reversed())
 }
 
-impl NetCapResultUI {
+impl NetCapResultWidget {
     pub fn new(report: NetCapReport) -> Self {
-        let ui = Self { report };
+        let mut ui = Self {
+            focus: false,
+            report,
+            menu: TableSelect::new(vec![]),
+            menu_height: 1,
+        };
+
+        ui.update_list();
         ui
     }
 
-    pub fn render_in_rect(&mut self, frame: &mut Frame, rect: &Rect) -> () {
+    fn update_list(&mut self) {
+        let mut names: Vec<String> =
+            self.report.table.iter().map(|i| i.aggressor_name.clone()).collect();
+
+        names.insert(0, String::from(""));
+        self.menu = TableSelect::new(names);
+        self.menu.select_state(Some(0));
+    }
+}
+impl Widget for &mut NetCapResultWidget {
+    fn render(self, area: Rect, buf: &mut Buffer) {
         let rows_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![Constraint::Length(2), Constraint::Fill(1)])
-            .split(*rect);
+            .split(area);
+        self.menu_height = rows_layout[1].as_size().height - 2;
+        let fs = focus_style(self.focus);
 
-        frame.render_widget(Paragraph::new("\n  Aggressor net:"), rows_layout[0]);
+        Paragraph::new("\n  Aggressor net:").style(fs.1).render(rows_layout[0], buf);
 
         let mut rows: Vec<_> = self
             .report
@@ -82,40 +104,54 @@ impl NetCapResultUI {
             0,
             Row::new(vec![col1, col2, col3, col4]).style(Style::new().add_modifier(Modifier::BOLD)),
         );
-        // let rows = [
-        //     Row::new(vec!["abc1", "def1", "ghi1"]),
-        //     Row::new(vec!["abc2", "def2", "ghi2"]),
-        //     Row::new(vec!["abc3", "def3", "ghi3"]),
-        // ];
+
         let widths = [
             Constraint::Fill(2),
             Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(7),
         ];
-        let table = Table::new(rows, widths).block(
-            Block::new()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Double)
-                .padding(Padding::horizontal(1)),
+
+        StatefulWidget::render(
+            Table::new(rows, widths)
+                .block(
+                    Block::new()
+                        .borders(Borders::ALL)
+                        .border_type(fs.0)
+                        .padding(Padding::horizontal(1)),
+                )
+                .highlight_style(Style::new().reversed()),
+            rows_layout[1],
+            buf,
+            &mut self.menu.state,
         );
-        frame.render_widget(table, rows_layout[1]);
     }
 }
 
-impl Render for NetCapResultUI {
-    fn render(&mut self, frame: &mut Frame) -> () {
-        self.render_in_rect(frame, &frame.size());
+impl NetCapResultWidget {
+    fn handle_arrow(&mut self, code: KeyCode) -> Action {
+        let pos = match code {
+            KeyCode::Up => self.menu.up(1),
+            KeyCode::Down => self.menu.down(1),
+            KeyCode::PageUp => self.menu.up((self.menu_height - 1).into()),
+            KeyCode::PageDown => self.menu.down((self.menu_height - 1).into()),
+            _ => 0, // not possible
+        };
+        let aggressor_net_name = self.menu.items[pos].to_owned();
+        match aggressor_net_name.len() {
+            0 => Action::SelectNet(self.report.net_name.clone()),
+            _ => Action::SelectNetPair(self.report.net_name.clone(), aggressor_net_name),
+        }
     }
-
-    fn handle_event(&mut self, event: &Event) -> Action {
+    pub fn handle_event(&mut self, event: &Event) -> Action {
         match event {
             Event::Tick => Action::None,
             Event::Key(key_event) => {
                 if key_event.kind == crossterm::event::KeyEventKind::Press {
                     match key_event.code {
-                        KeyCode::Esc => Action::Quit,
-
+                        KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown => {
+                            self.handle_arrow(key_event.code)
+                        }
                         _ => Action::None,
                     }
                 } else {

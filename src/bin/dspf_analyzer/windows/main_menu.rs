@@ -26,8 +26,8 @@ impl MainMenuUI {
             num_capacitors: dspf.netlist.as_ref().unwrap().capacitors.len(),
             menu: ListSelect::new(vec![
                 "Report capacitance for net...".to_string(),
-                "Report capacitance between 2 nets...".to_string(),
-                "Report path resistance...".to_string(),
+                // "Report capacitance between 2 nets...".to_string(),
+                // "Report path resistance...".to_string(),
                 "Quit".to_string(),
             ]),
         }
@@ -40,7 +40,7 @@ impl Render for MainMenuUI {
             .constraints(vec![Constraint::Length(7), Constraint::Fill(1)])
             .split(frame.size());
 
-        let pad = |s| format!("{:<20}", s);
+        let pad = |s| format!("{:<24}", s);
         let text = vec![
             Line::from(vec![
                 Span::raw(pad("Filename:")),
@@ -84,9 +84,7 @@ impl Render for MainMenuUI {
             .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
         // hack, how do I do this...
-        self.menu
-            .state
-            .select(Some(self.menu.state.selected().unwrap_or(0)));
+        self.menu.state.select(Some(self.menu.state.selected().unwrap_or(0)));
         frame.render_stateful_widget(menu, layout[1], &mut self.menu.state);
     }
     fn handle_event(&mut self, event: &Event) -> Action {
@@ -157,5 +155,40 @@ impl<T> ListSelect<T> {
             Some(i) => Action::SelectMenuOption(i),
             None => Action::None,
         }
+    }
+}
+
+pub struct TableSelect<T> {
+    pub state: TableState,
+    pub items: Vec<T>,
+}
+
+impl<T> TableSelect<T> {
+    pub fn new(items: Vec<T>) -> Self {
+        TableSelect {
+            state: TableState::default(),
+            items: items,
+        }
+    }
+
+    pub fn down(&mut self, amount: usize) -> usize {
+        let mut index = self.state.selected().unwrap_or(0);
+        index = (index + amount).min(self.items.len() - 1);
+        self.state.select(Some(index));
+        index
+    }
+
+    pub fn up(&mut self, amount: usize) -> usize {
+        let mut index = self.state.selected().unwrap_or(0);
+        if index < amount {
+            index = 0
+        } else {
+            index = index - amount
+        }
+        self.state.select(Some(index));
+        index
+    }
+    pub fn select_state(&mut self, state: Option<usize>) {
+        self.state.select(state);
     }
 }

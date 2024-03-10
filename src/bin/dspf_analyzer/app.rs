@@ -11,15 +11,14 @@ use color_eyre::Result;
 
 use crate::{
     tui::Tui,
-    windows::{
-        layer_cap_result::LayerCapResultUI, main_menu::MainMenuUI, net_cap_main::NetCapSelectionUI,
-        net_cap_result::NetCapResultUI, ProgressUI, Render, Window,
-    },
+    windows::{main_menu::MainMenuUI, net_cap_main::NetCapMainUI, ProgressUI, Render, Window},
 };
 
-pub(crate) enum Action {
+pub enum Action {
     SelectMenuOption(usize),
     SelectNet(String),
+    SelectNetPair(String, String),
+    Esc,
     Quit,
     None,
 }
@@ -87,40 +86,18 @@ impl App {
 
             let action = self.current_ui.handle_event(&self.tui.events.next()?);
 
-            if let Action::Quit = action {
-                self.quit()
-            };
-            match &mut self.current_ui {
-                Window::MainMenu(_) => match action {
-                    Action::SelectMenuOption(i) => self.main_menu(i),
-                    _ => {}
-                },
-                Window::NetCapSelection(ui) => match action {
-                    Action::SelectNet(net_name) => {
-                        let report = self
-                            .dspf
-                            .as_ref()
-                            .unwrap()
-                            .netlist
-                            .as_ref()
-                            .unwrap()
-                            .get_net_capacitors(&net_name)
-                            .unwrap();
-                        let report_layers = self
-                            .dspf
-                            .as_ref()
-                            .unwrap()
-                            .netlist
-                            .as_ref()
-                            .unwrap()
-                            .get_layer_capacitors(&net_name, None)
-                            .unwrap();
-                        ui.result_ui = NetCapResultUI::new(report);
-                        ui.result_ui_layers = LayerCapResultUI::new(report_layers);
-                        // self.current_ui = Window::NetCapResult(NetCapResultUI::new(report));
+            match action {
+                Action::Quit => self.quit(),
+                Action::Esc => match self.current_ui {
+                    Window::MainMenu(_) => {
+                        self.quit();
                     }
-                    _ => {}
+                    _ => {
+                        self.current_ui =
+                            Window::MainMenu(MainMenuUI::new(&self.dspf.as_ref().unwrap()));
+                    }
                 },
+                Action::SelectMenuOption(i) => self.main_menu(i),
                 _ => {}
             }
         }
@@ -129,10 +106,9 @@ impl App {
 
     fn main_menu(&mut self, selection: usize) {
         if selection == 0 {
-            self.current_ui = Window::NetCapSelection(NetCapSelectionUI::new(
-                self.dspf.as_ref().unwrap().clone(),
-            ));
-        } else if selection == 3 {
+            self.current_ui =
+                Window::NetCap(NetCapMainUI::new(self.dspf.as_ref().unwrap().clone()));
+        } else if selection == 1 {
             self.quit();
         }
     }

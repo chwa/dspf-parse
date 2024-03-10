@@ -2,6 +2,7 @@ pub mod layer_cap_result;
 pub mod main_menu;
 pub mod net_cap_main;
 pub mod net_cap_result;
+pub mod net_cap_selection;
 
 use std::sync::{Arc, Mutex};
 
@@ -13,7 +14,7 @@ use ratatui::{prelude::*, widgets::*};
 use crate::{app::Action, event::Event};
 
 use self::main_menu::MainMenuUI;
-use self::net_cap_main::NetCapSelectionUI;
+use self::net_cap_main::NetCapMainUI;
 
 pub trait Render {
     fn render(&mut self, frame: &mut Frame) -> ();
@@ -23,7 +24,7 @@ pub trait Render {
 pub enum Window {
     Blank(BlankUI),
     MainMenu(MainMenuUI),
-    NetCapSelection(NetCapSelectionUI),
+    NetCap(NetCapMainUI),
     Progress(ProgressUI),
 }
 use Window as W;
@@ -39,7 +40,7 @@ impl<'a> Render for Window {
         match self {
             W::Blank(ui) => ui.render(frame),
             W::MainMenu(ui) => ui.render(frame),
-            W::NetCapSelection(ui) => ui.render(frame),
+            W::NetCap(ui) => ui.render(frame),
             W::Progress(ui) => ui.render(frame),
         }
     }
@@ -47,7 +48,7 @@ impl<'a> Render for Window {
         match self {
             W::Blank(ui) => ui.handle_event(event),
             W::MainMenu(ui) => ui.handle_event(event),
-            W::NetCapSelection(ui) => ui.handle_event(event),
+            W::NetCap(ui) => ui.handle_event(event),
             W::Progress(ui) => ui.handle_event(event),
         }
     }
@@ -107,8 +108,7 @@ impl Render for ProgressUI {
         let st = self.status.lock().unwrap();
 
         let lines = vec![
-            Line::from(format!("{}/{} Lines", st.loaded_lines, st.total_lines)),
-            Line::from(format!("{}/{} Net blocks", st.loaded_nets, st.total_nets)),
+            Line::from(format!("{}/{} Bytes", st.loaded_bytes, st.total_bytes)),
             Line::from(format!(
                 "{}/{} Instance blocks",
                 st.loaded_inst_blocks, st.total_inst_blocks
@@ -120,7 +120,7 @@ impl Render for ProgressUI {
             Paragraph::new("Loading...").alignment(Alignment::Center),
             rows_layout_inner[0],
         );
-        let mut ratio = (st.loaded_lines as f64) / (st.total_lines as f64);
+        let mut ratio = (st.loaded_bytes as f64) / (st.total_bytes as f64);
         if ratio.is_nan() {
             ratio = 0.0;
         }

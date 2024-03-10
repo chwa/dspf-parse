@@ -3,7 +3,6 @@ use super::{
     netlist2::{Capacitor, LayerInfo, Net, NetInfo, NetType, Netlist, Node, NodeType, Resistor},
     nomutil::{empty_or_comment, float, identifier, optionally_quoted_string, ws},
 };
-use color_eyre;
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag},
@@ -45,6 +44,17 @@ impl Dspf {
     pub fn load(file_path: &str, status: Option<Arc<Mutex<LoadStatus>>>) -> Dspf {
         let file_size = fs::metadata(file_path).unwrap().len();
         let data = fs::read_to_string(file_path).unwrap();
+
+        let mut bytes_processed = 0_usize;
+
+        if let Some(ref s) = status {
+            let mut status = s.lock().unwrap();
+            *status = LoadStatus {
+                loaded_bytes: 0,
+                total_bytes: data.len(),
+                ..LoadStatus::default()
+            };
+        }
         let (mut tail, info) = parse_dspf_info(&data).map_err(|err| err.to_owned()).unwrap();
 
         let mut instance_sections: Vec<(usize, &str)> = Vec::new();
@@ -77,8 +87,12 @@ impl Dspf {
         }
 
         loop {
+            let block_start = tail.as_ptr() as usize;
+
             let (t, (net, nodes)) =
                 read_net_block(tail, &info.subckt.ports).map_err(|err| err.to_owned()).unwrap();
+
+            bytes_processed += (t.as_ptr() as usize) - block_start;
 
             let net_name = net.info.name.clone();
 
@@ -117,11 +131,21 @@ impl Dspf {
             } else {
                 panic!("No .ENDS statement found");
             }
+
+            if let Some(ref s) = status {
+                let mut status = s.lock().unwrap();
+                status.loaded_bytes = bytes_processed;
+            }
         }
 
         let layer_map_inv: HashMap<String, u8> = HashMap::from_iter(
             info.layer_map.as_ref().unwrap().iter().map(|(k, v)| (v.clone(), *k)),
         );
+
+        if let Some(ref s) = status {
+            let mut status = s.lock().unwrap();
+            status.total_inst_blocks = instance_sections.len();
+        }
 
         for (_x, inst_slice) in instance_sections {
             let (_, instances) = parse_instances(inst_slice).map_err(|err| err.to_owned()).unwrap();
@@ -157,6 +181,12 @@ impl Dspf {
                         netlist.all_nodes[nodes.1].capacitors.push(cap_idx);
                     }
                 }
+            }
+            bytes_processed += inst_slice.len();
+            if let Some(ref s) = status {
+                let mut status = s.lock().unwrap();
+                status.loaded_bytes = bytes_processed;
+                status.loaded_inst_blocks += 1;
             }
         }
 

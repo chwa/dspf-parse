@@ -1,30 +1,36 @@
 use crate::util::eng_format;
 use crate::{app::Action, event::Event};
-use crossterm::event::KeyCode;
 use dspf_parse::dspf::netlist::LayerCapReport;
-use ratatui::Frame;
 use ratatui::{prelude::*, widgets::*};
 
+use super::net_cap_main::focus_style;
 use super::net_cap_result::line_bar;
-use super::Render;
 
-pub struct LayerCapResultUI {
+pub struct LayerCapResultWidget {
+    pub focus: bool,
     report: LayerCapReport,
 }
 
-impl LayerCapResultUI {
+impl LayerCapResultWidget {
     pub fn new(report: LayerCapReport) -> Self {
-        let ui = Self { report };
+        let ui = Self {
+            focus: false,
+            report,
+        };
         ui
     }
+}
 
-    pub fn render_in_rect(&mut self, frame: &mut Frame, rect: &Rect) -> () {
+impl Widget for &mut LayerCapResultWidget {
+    fn render(self, area: Rect, buf: &mut Buffer) {
         let rows_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![Constraint::Length(2), Constraint::Fill(1)])
-            .split(*rect);
+            .split(area);
 
-        frame.render_widget(Paragraph::new("\n  Layer pairs:"), rows_layout[0]);
+        let fs = focus_style(self.focus);
+
+        Paragraph::new("\n  Layer pairs:").style(fs.1).render(rows_layout[0], buf);
 
         let rows: Vec<_> = self
             .report
@@ -50,26 +56,19 @@ impl LayerCapResultUI {
         let table = Table::new(rows, widths).block(
             Block::new()
                 .borders(Borders::ALL)
-                .border_type(BorderType::Plain)
+                .border_type(fs.0)
                 .padding(Padding::horizontal(1)),
         );
-        frame.render_widget(table, rows_layout[1]);
+        Widget::render(table, rows_layout[1], buf);
     }
 }
-
-impl Render for LayerCapResultUI {
-    fn render(&mut self, frame: &mut Frame) -> () {
-        self.render_in_rect(frame, &frame.size());
-    }
-
-    fn handle_event(&mut self, event: &Event) -> Action {
+impl LayerCapResultWidget {
+    pub fn handle_event(&mut self, event: &Event) -> Action {
         match event {
             Event::Tick => Action::None,
             Event::Key(key_event) => {
                 if key_event.kind == crossterm::event::KeyEventKind::Press {
                     match key_event.code {
-                        KeyCode::Esc => Action::Quit,
-
                         _ => Action::None,
                     }
                 } else {
