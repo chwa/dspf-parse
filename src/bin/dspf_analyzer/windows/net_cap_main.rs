@@ -69,6 +69,16 @@ impl NetCapMainUI {
         self.highlight_focused()
     }
 
+    fn left(&mut self) {
+        self.focus = FocusUI::Selection;
+        self.highlight_focused()
+    }
+
+    fn right(&mut self) {
+        self.focus = FocusUI::Result;
+        self.highlight_focused()
+    }
+
     fn highlight_focused(&mut self) {
         self.net_selection_widget.focus = self.focus == FocusUI::Selection;
         self.net_cap_result_widget.focus = self.focus == FocusUI::Result;
@@ -188,6 +198,14 @@ impl Render for NetCapMainUI {
             Event::Key(key_event) => {
                 if key_event.kind == crossterm::event::KeyEventKind::Press {
                     match key_event.code {
+                        KeyCode::Left => {
+                            self.left();
+                            Action::None
+                        }
+                        KeyCode::Right => {
+                            self.right();
+                            Action::None
+                        }
                         KeyCode::Tab => {
                             self.tab();
                             Action::None
