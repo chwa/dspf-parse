@@ -1,4 +1,3 @@
-pub mod analysis;
 pub mod dspf;
 
 #[cfg(test)]
