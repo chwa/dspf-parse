@@ -38,8 +38,8 @@ impl Widget for &mut LayerCapResultWidget {
                 let col1 = Line::raw(&x.layer_names.0);
                 let col2 = Line::raw(&x.layer_names.1);
                 let col3 = Line::raw(eng_format_scale(x.cap, self.report.total_cap));
-                let col4 = line_bar(8, x.cap / self.report.total_cap);
-                let col5 = Line::raw(format!("{:6.1}%", 100.0 * x.cap / self.report.total_cap));
+                let col4 = line_bar(12, x.cap / self.report.total_cap);
+                let col5 = Line::raw(format!("{:5.1}%", 100.0 * x.cap / self.report.total_cap));
                 Row::new(vec![col1, col2, col3, col4, col5])
             })
             .collect();
@@ -47,9 +47,9 @@ impl Widget for &mut LayerCapResultWidget {
         let widths = [
             Constraint::Fill(1),
             Constraint::Fill(1),
-            Constraint::Length(11),
-            Constraint::Length(10),
-            Constraint::Length(7),
+            Constraint::Length(8),
+            Constraint::Length(12),
+            Constraint::Length(6),
         ];
         let table = Table::new(rows, widths).block(
             Block::new()

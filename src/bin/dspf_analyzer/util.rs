@@ -6,7 +6,9 @@ use ratatui::{
 
 // version that prints a number in the same format as the (larger) `value_for_scale`
 pub fn eng_format_scale(value: f64, value_for_scale: f64) -> String {
-    let map: [(i32, char); 10] = [
+    let map: [(i32, char); 14] = [
+        (-24, 'y'),
+        (-21, 'z'),
         (-18, 'a'),
         (-15, 'f'),
         (-12, 'p'),
@@ -17,6 +19,8 @@ pub fn eng_format_scale(value: f64, value_for_scale: f64) -> String {
         (3, 'k'),
         (6, 'M'),
         (9, 'G'),
+        (12, 'T'),
+        (15, 'P'),
     ];
     let mut log = value_for_scale.abs().log10();
     if log.is_infinite() {

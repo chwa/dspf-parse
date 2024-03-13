@@ -135,8 +135,8 @@ impl Widget for &mut NetCapResultWidget {
             .map(|x| {
                 let col1 = Line::raw(x.aggressor.to_string());
                 let col2 = Line::raw(eng_format_scale(x.cap, total_c));
-                let mut col3 = line_bar(8, x.cap / total_c);
-                let col4 = Line::raw(format!("{:6.1}%", 100.0 * x.cap / total_c));
+                let mut col3 = line_bar(12, x.cap / total_c);
+                let col4 = Line::raw(format!("{:5.1}%", 100.0 * x.cap / total_c));
                 let mut sty = Style::new();
                 if let AggrNet::Total = x.aggressor {
                     sty = sty.bold();
@@ -150,8 +150,8 @@ impl Widget for &mut NetCapResultWidget {
         let widths = [
             Constraint::Fill(2),
             Constraint::Length(8),
-            Constraint::Length(10),
-            Constraint::Length(7),
+            Constraint::Length(12),
+            Constraint::Length(6),
         ];
 
         StatefulWidget::render(
