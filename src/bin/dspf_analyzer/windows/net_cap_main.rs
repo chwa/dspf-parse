@@ -46,7 +46,7 @@ impl NetCapMainUI {
         nets.sort_by_key(|info| (info.net_type.clone(), info.name.clone()));
 
         let mut ui = Self {
-            dspf: dspf,
+            dspf,
             net_selection_widget: NetSelectionWidget::new(nets),
             net_cap_result_widget: NetCapResultWidget::new(NetCapReport::default()),
             layer_cap_result_widget: LayerCapResultWidget::new(LayerCapReport::default()),
@@ -91,7 +91,7 @@ impl NetCapMainUI {
             Action::SelectVictimNet(net) => {
                 let report = match &net {
                     Some(net_name) => {
-                        self.dspf.netlist.as_ref().unwrap().get_net_capacitors(&net_name).unwrap()
+                        self.dspf.netlist.as_ref().unwrap().get_net_capacitors(net_name).unwrap()
                     }
                     None => NetCapReport::default(),
                 };

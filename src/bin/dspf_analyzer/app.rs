@@ -73,7 +73,7 @@ impl App {
                 let j = self.joinhandle.take().unwrap();
                 let dspf = j.join().unwrap();
                 self.dspf = Some(Rc::new(dspf));
-                self.current_ui = Window::MainMenu(MainMenuUI::new(&self.dspf.as_ref().unwrap()));
+                self.current_ui = Window::MainMenu(MainMenuUI::new(self.dspf.as_ref().unwrap()));
             }
         }
     }
@@ -94,7 +94,7 @@ impl App {
                     }
                     _ => {
                         self.current_ui =
-                            Window::MainMenu(MainMenuUI::new(&self.dspf.as_ref().unwrap()));
+                            Window::MainMenu(MainMenuUI::new(self.dspf.as_ref().unwrap()));
                     }
                 },
                 Action::SelectMenuOption(i) => self.main_menu(i),

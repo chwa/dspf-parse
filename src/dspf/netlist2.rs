@@ -72,8 +72,9 @@ pub struct LayerCapReport {
     pub table: Vec<NetCapForLayer>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AggrNet {
+    #[default]
     Total,
     Net(String),
 }
@@ -84,12 +85,6 @@ impl fmt::Display for AggrNet {
             Self::Total => write!(f, "[TOTAL]"),
             Self::Net(net_name) => write!(f, "{}", net_name),
         }
-    }
-}
-
-impl Default for AggrNet {
-    fn default() -> Self {
-        AggrNet::Total
     }
 }
 
@@ -108,12 +103,11 @@ impl Netlist {
         for subnode_idx in net.sub_nets.iter() {
             let subnode = &self.all_nodes[*subnode_idx];
             for cap in subnode.capacitors.iter().map(|s| &self.capacitors[*s]) {
-                let other_node: usize;
-                if cap.nodes.0 == *subnode_idx {
-                    other_node = cap.nodes.1;
+                let other_node: usize = if cap.nodes.0 == *subnode_idx {
+                    cap.nodes.1
                 } else {
-                    other_node = cap.nodes.0;
-                }
+                    cap.nodes.0
+                };
 
                 let other_net = self.all_nodes[other_node].of_net;
                 *net_caps.entry(other_net).or_insert(0.0) += cap.value;

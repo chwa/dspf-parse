@@ -62,8 +62,10 @@ impl Dspf {
         // temporary map to look up node index when parsing R/C instances
         let mut nodes_map: HashMap<String, usize> = HashMap::new();
 
-        let mut netlist = Netlist::default();
-        netlist.layer_map = info.layer_map.as_ref().unwrap().clone();
+        let mut netlist = Netlist {
+            layer_map: info.layer_map.as_ref().unwrap().clone(),
+            ..Netlist::default()
+        };
 
         for ground_name in &info.ground_nets {
             let node_idx = netlist.add_node(Node {
@@ -97,7 +99,7 @@ impl Dspf {
             let net_name = net.info.name.clone();
 
             let net_idx = netlist.add_net(net);
-            if nodes.len() == 0 {
+            if nodes.is_empty() {
                 // special case, if the net has no subnodes listed explicitly,
                 // we need to insert the net itself as its only subnode
                 let node_idx = netlist.add_node(Node {
@@ -174,7 +176,7 @@ impl Dspf {
                             value,
                             layers,
                         };
-                        let nodes = c.nodes.clone();
+                        let nodes = c.nodes;
                         netlist.capacitors.push(c);
                         let cap_idx = netlist.capacitors.len() - 1;
                         netlist.all_nodes[nodes.0].capacitors.push(cap_idx);
@@ -323,9 +325,9 @@ fn parse_layer_map(input: &str) -> IResult<&str, HashMap<u8, String>> {
     ))
 }
 
-fn parse_ground_and_layers(
-    input: &str,
-) -> IResult<&str, (Vec<String>, Option<HashMap<u8, String>>)> {
+type LayerMap = HashMap<u8, String>;
+
+fn parse_ground_and_layers(input: &str) -> IResult<&str, (Vec<String>, Option<LayerMap>)> {
     let (tail, grounds) = preceded(empty_or_comment, many1(parse_ground_net))(input)?;
     let (tail, layer_map) =
         delimited(empty_or_comment, opt(parse_layer_map), empty_or_comment)(tail)?;
@@ -443,18 +445,17 @@ fn parse_nodedefs(input: &str) -> IResult<&str, Vec<Node>> {
 
 fn read_net_block<'a>(
     input: &'a str,
-    subckt_pins: &Vec<String>,
+    subckt_pins: &[String],
 ) -> IResult<&'a str, (Net, Vec<Node>)> {
     let (tail, (net_def, nodedefs)) = pair(parse_net_def, parse_nodedefs)(input)?;
 
     // TODO: we are assuming that ground nodes can't have a net block...
     // otherwise we would have to check here if the net is a ground.
-    let typ: NetType;
-    if subckt_pins.contains(&net_def.name) {
-        typ = NetType::SubcktPin;
+    let typ: NetType = if subckt_pins.contains(&net_def.name) {
+        NetType::SubcktPin
     } else {
-        typ = NetType::Other;
-    }
+        NetType::Other
+    };
 
     Ok((
         tail,
@@ -498,7 +499,7 @@ fn parse_dollar_params(input: &str) -> IResult<&str, Vec<(String, String)>> {
 
 fn parse_resistor(input: &str) -> IResult<&str, ElementDef> {
     let (tail, (_name, nodes, value, layer, _params)) = tuple((
-        verify(ws(identifier), |s: &str| s.starts_with("R")),
+        verify(ws(identifier), |s: &str| s.starts_with('R')),
         map(pair(ws(identifier), ws(identifier)), |(a, b)| {
             (a.to_string(), b.to_string())
         }),
@@ -519,7 +520,7 @@ fn parse_resistor(input: &str) -> IResult<&str, ElementDef> {
 
 fn parse_capacitor(input: &str) -> IResult<&str, ElementDef> {
     let (tail, (_name, nodes, value, params)) = tuple((
-        verify(ws(identifier), |s: &str| s.starts_with("C")),
+        verify(ws(identifier), |s: &str| s.starts_with('C')),
         map(pair(ws(identifier), ws(identifier)), |(a, b)| {
             (a.to_string(), b.to_string())
         }),

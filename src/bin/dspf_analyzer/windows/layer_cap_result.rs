@@ -12,11 +12,10 @@ pub struct LayerCapResultWidget {
 
 impl LayerCapResultWidget {
     pub fn new(report: LayerCapReport) -> Self {
-        let ui = Self {
+        Self {
             focus: false,
             report,
-        };
-        ui
+        }
     }
 }
 

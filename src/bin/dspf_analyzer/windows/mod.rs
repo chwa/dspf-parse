@@ -17,7 +17,7 @@ use self::main_menu::MainMenuUI;
 use self::net_cap_main::NetCapMainUI;
 
 pub trait Render {
-    fn render(&mut self, frame: &mut Frame) -> ();
+    fn render(&mut self, frame: &mut Frame);
     fn handle_event(&mut self, event: &Event) -> Action;
 }
 
@@ -29,14 +29,14 @@ pub enum Window {
 }
 use Window as W;
 
-impl<'a> Default for Window {
+impl Default for Window {
     fn default() -> Self {
         W::Blank(BlankUI {})
     }
 }
 
-impl<'a> Render for Window {
-    fn render(&mut self, frame: &mut Frame) -> () {
+impl Render for Window {
+    fn render(&mut self, frame: &mut Frame) {
         match self {
             W::Blank(ui) => ui.render(frame),
             W::MainMenu(ui) => ui.render(frame),
@@ -58,7 +58,7 @@ impl<'a> Render for Window {
 
 pub struct BlankUI {}
 impl Render for BlankUI {
-    fn render(&mut self, _: &mut Frame) -> () {}
+    fn render(&mut self, _: &mut Frame) {}
     fn handle_event(&mut self, _: &Event) -> Action {
         Action::None
     }
@@ -75,7 +75,7 @@ impl ProgressUI {
 }
 
 impl Render for ProgressUI {
-    fn render(&mut self, frame: &mut Frame) -> () {
+    fn render(&mut self, frame: &mut Frame) {
         let rows_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![

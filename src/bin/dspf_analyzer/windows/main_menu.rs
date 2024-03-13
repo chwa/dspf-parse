@@ -34,7 +34,7 @@ impl MainMenuUI {
     }
 }
 impl Render for MainMenuUI {
-    fn render(&mut self, frame: &mut Frame) -> () {
+    fn render(&mut self, frame: &mut Frame) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![Constraint::Length(7), Constraint::Fill(1)])
@@ -124,7 +124,7 @@ impl<T> ListSelect<T> {
     pub fn new(items: Vec<T>) -> Self {
         ListSelect {
             state: ListState::default(),
-            items: items,
+            items,
         }
     }
 
@@ -140,7 +140,7 @@ impl<T> ListSelect<T> {
         if index < amount {
             index = 0
         } else {
-            index = index - amount
+            index -= amount
         }
         self.state.select(Some(index));
         index
@@ -167,7 +167,7 @@ impl<T> TableSelect<T> {
     pub fn new(items: Vec<T>) -> Self {
         TableSelect {
             state: TableState::default(),
-            items: items,
+            items,
         }
     }
 
@@ -183,7 +183,7 @@ impl<T> TableSelect<T> {
         if index < amount {
             index = 0
         } else {
-            index = index - amount
+            index -= amount
         }
         self.state.select(Some(index));
         index

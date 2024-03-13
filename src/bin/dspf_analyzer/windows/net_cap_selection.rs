@@ -22,7 +22,7 @@ impl NetSelectionWidget {
         nets.sort_by_key(|info| (info.net_type.clone(), info.name.clone()));
         let mut ui = Self {
             focus: false,
-            nets: nets,
+            nets,
             search_string: String::from("*"),
             menu: ListSelect::new(vec![]),
             menu_height: 1,

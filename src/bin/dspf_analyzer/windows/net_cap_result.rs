@@ -62,7 +62,7 @@ impl NetCapResultWidget {
 
         self.menu = TableSelect::new(aggressors_filtered);
 
-        if self.menu.items.len() > 0 {
+        if !self.menu.items.is_empty() {
             self.menu.select_state(Some(0));
         }
 
