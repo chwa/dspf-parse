@@ -191,4 +191,8 @@ impl<T> TableSelect<T> {
     pub fn select_state(&mut self, state: Option<usize>) {
         self.state.select(state);
     }
+
+    pub fn selected(&self) -> Option<&T> {
+        self.state.selected().map(|idx| &self.items[idx])
+    }
 }

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag},

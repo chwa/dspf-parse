@@ -1,6 +1,8 @@
-pub fn eng_format(value: f64) -> String {
-    eng_format_scale(value, value)
-}
+use ratatui::{
+    style::{Color, Modifier, Style},
+    symbols,
+    text::{Line, Span},
+};
 
 // version that prints a number in the same format as the (larger) `value_for_scale`
 pub fn eng_format_scale(value: f64, value_for_scale: f64) -> String {
@@ -32,9 +34,57 @@ pub fn eng_format_scale(value: f64, value_for_scale: f64) -> String {
     )
 }
 
+// https://docs.rs/ratatui/latest/src/ratatui/widgets/gauge.rs.html#221
+fn get_unicode_block<'a>(frac: f64) -> &'a str {
+    match (frac * 8.0).round() as u16 {
+        1 => symbols::block::ONE_EIGHTH,
+        2 => symbols::block::ONE_QUARTER,
+        3 => symbols::block::THREE_EIGHTHS,
+        4 => symbols::block::HALF,
+        5 => symbols::block::FIVE_EIGHTHS,
+        6 => symbols::block::THREE_QUARTERS,
+        7 => symbols::block::SEVEN_EIGHTHS,
+        8 => symbols::block::FULL,
+        _ => " ",
+    }
+}
+
+pub fn line_bar(width: usize, frac: f64) -> Line<'static> {
+    if width < 2 || !frac.is_finite() {
+        return Line::from(" ");
+    }
+
+    let width = width - 2;
+
+    // reversed direction: use 1-frac and inver the color...
+    let frac = 1.0 - frac.clamp(0.0, 1.0);
+
+    let bar_width = frac * width as f64;
+    let mut bar = symbols::block::FULL.repeat(bar_width.floor() as usize);
+    bar.push_str(get_unicode_block(bar_width % 1.0));
+    let space = " ".repeat(width - bar_width.floor() as usize - 1);
+    let color = Color::Rgb(
+        ((1.0 - frac).sqrt().sqrt() * 255.0) as u8,
+        (frac * 255.0) as u8,
+        0,
+    );
+    let color = Style::new().fg(color).add_modifier(Modifier::REVERSED);
+
+    Line::from(vec![
+        Span::raw("│"),
+        Span::raw(bar).style(color),
+        Span::raw(space).style(color),
+        Span::raw("│"),
+    ])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    pub fn eng_format(value: f64) -> String {
+        eng_format_scale(value, value)
+    }
 
     #[test]
     fn test_eng_format() {

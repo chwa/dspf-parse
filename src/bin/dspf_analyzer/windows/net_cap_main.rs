@@ -1,6 +1,6 @@
 use crate::{app::Action, event::Event};
 use crossterm::event::KeyCode;
-use dspf_parse::dspf::netlist::{LayerCapReport, NetCapReport, NetInfo};
+use dspf_parse::dspf::netlist::{AggrNet, LayerCapReport, NetCapReport, NetInfo};
 use dspf_parse::dspf::Dspf;
 use ratatui::Frame;
 use ratatui::{prelude::*, widgets::*};
@@ -53,9 +53,10 @@ impl NetCapMainUI {
             focus: FocusUI::Selection,
         };
         ui.highlight_focused();
-        ui.handle_action(Action::SelectNet(
-            ui.net_selection_widget.nets[0].name.clone(),
-        ));
+
+        // trigger the update of the net_cap_result_widget
+        let action = ui.net_selection_widget.update_list();
+        ui.handle_action(action);
         ui
     }
 
@@ -85,36 +86,46 @@ impl NetCapMainUI {
         self.layer_cap_result_widget.focus = self.focus == FocusUI::Layers;
     }
 
-    fn handle_action(&mut self, action: Action) -> Action {
+    fn handle_action(&mut self, action: Action) {
         match action {
-            Action::SelectNet(net_name) => {
-                let report =
-                    self.dspf.netlist.as_ref().unwrap().get_net_capacitors(&net_name).unwrap();
-                let report_layers = self
-                    .dspf
-                    .netlist
-                    .as_ref()
-                    .unwrap()
-                    .get_layer_capacitors(&net_name, None)
-                    .unwrap();
+            Action::SelectVictimNet(net) => {
+                let report = match &net {
+                    Some(net_name) => {
+                        self.dspf.netlist.as_ref().unwrap().get_net_capacitors(&net_name).unwrap()
+                    }
+                    None => NetCapReport::default(),
+                };
+                let layer_report = match net {
+                    Some(net_name) => self
+                        .dspf
+                        .netlist
+                        .as_ref()
+                        .unwrap()
+                        .get_layer_capacitors(&net_name, AggrNet::Total)
+                        .unwrap(),
+                    None => LayerCapReport::default(),
+                };
                 self.net_cap_result_widget = NetCapResultWidget::new(report);
+                self.layer_cap_result_widget = LayerCapResultWidget::new(layer_report);
+                self.highlight_focused();
+            }
+            Action::SelectAggrNet(aggr_net) => {
+                let report_layers = match aggr_net {
+                    Some(aggr) => self
+                        .dspf
+                        .netlist
+                        .as_ref()
+                        .unwrap()
+                        .get_layer_capacitors(&self.net_selection_widget.selected().unwrap(), aggr)
+                        .unwrap(),
+                    None => LayerCapReport::default(),
+                };
                 self.layer_cap_result_widget = LayerCapResultWidget::new(report_layers);
                 self.highlight_focused();
             }
-            Action::SelectNetPair(net1, net2) => {
-                let report_layers = self
-                    .dspf
-                    .netlist
-                    .as_ref()
-                    .unwrap()
-                    .get_layer_capacitors(&net1, Some(&net2))
-                    .unwrap();
-                self.layer_cap_result_widget = LayerCapResultWidget::new(report_layers);
-                self.highlight_focused();
-            }
+
             _ => {}
         }
-        Action::None
     }
 }
 
@@ -176,18 +187,14 @@ impl Render for NetCapMainUI {
         let header = vec![Line::from("dspf_analyzer v0.0.0")];
 
         frame.render_widget(
-            Paragraph::new(header)
-                .style(Style::new().black().on_white())
-                .alignment(Alignment::Left),
+            Paragraph::new(header).style(Style::new().reversed()).alignment(Alignment::Left),
             rows_layout[0],
         );
         let footer = vec![Line::from(self.dspf.as_ref().file_path.clone())];
         // let text = vec![Line::from("This is just the status bar.")];
 
         frame.render_widget(
-            Paragraph::new(footer)
-                .style(Style::new().black().on_white())
-                .alignment(Alignment::Left),
+            Paragraph::new(footer).style(Style::new().reversed()).alignment(Alignment::Left),
             rows_layout[2],
         );
     }
@@ -211,13 +218,16 @@ impl Render for NetCapMainUI {
                             Action::None
                         }
                         KeyCode::Esc => Action::Esc,
+
+                        // delegate others to the currently focused widget
                         _ => {
                             let action = match self.focus {
                                 FocusUI::Selection => self.net_selection_widget.handle_event(event),
                                 FocusUI::Result => self.net_cap_result_widget.handle_event(event),
                                 FocusUI::Layers => self.layer_cap_result_widget.handle_event(event),
                             };
-                            self.handle_action(action)
+                            self.handle_action(action);
+                            Action::None
                         }
                     }
                 } else {

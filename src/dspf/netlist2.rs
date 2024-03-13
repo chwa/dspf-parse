@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{cmp::min, collections::HashMap};
+use std::{cmp::min, collections::HashMap, fmt::Formatter};
 
 use color_eyre::{eyre::ContextCompat, Result};
 
@@ -43,11 +43,12 @@ impl fmt::Debug for Netlist {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct NetCapForAggressor {
-    pub aggressor_name: String,
+    pub aggressor: AggrNet,
     pub cap: f64,
 }
+
 #[derive(Debug)]
 pub struct NetCapForLayer {
     pub layer_names: (String, String),
@@ -57,7 +58,7 @@ pub struct NetCapForLayer {
 #[derive(Default, Debug)]
 pub struct NetCapReport {
     pub net_name: String,
-    pub total_cap: f64,
+    pub total_cap: NetCapForAggressor,
     pub table: Vec<NetCapForAggressor>,
     // pub per_layer: Vec<NetCapForLayer>,
     // pub per_aggressor_per_layer: Vec<Vec<NetCapForLayer>>,
@@ -66,9 +67,30 @@ pub struct NetCapReport {
 #[derive(Default, Debug)]
 pub struct LayerCapReport {
     pub net_name: String,
-    pub aggressor_name: Option<String>,
+    pub aggressor_net: AggrNet,
     pub total_cap: f64,
     pub table: Vec<NetCapForLayer>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AggrNet {
+    Total,
+    Net(String),
+}
+
+impl fmt::Display for AggrNet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            Self::Total => write!(f, "[TOTAL]"),
+            Self::Net(net_name) => write!(f, "{}", net_name),
+        }
+    }
+}
+
+impl Default for AggrNet {
+    fn default() -> Self {
+        AggrNet::Total
+    }
 }
 
 impl Netlist {
@@ -101,13 +123,12 @@ impl Netlist {
         let mut per_aggressor: Vec<NetCapForAggressor> = Vec::new();
         for (idx, value) in net_caps.drain() {
             per_aggressor.push(NetCapForAggressor {
-                aggressor_name: self.all_nets[idx].info.name.to_owned(),
+                aggressor: AggrNet::Net(self.all_nets[idx].info.name.to_owned()),
                 cap: value,
             });
         }
-        per_aggressor.sort_by(|a, b| {
-            b.cap.partial_cmp(&a.cap).unwrap().then(a.aggressor_name.cmp(&b.aggressor_name))
-        });
+        per_aggressor
+            .sort_by(|a, b| b.cap.partial_cmp(&a.cap).unwrap().then(a.aggressor.cmp(&b.aggressor)));
 
         let mut total_cap = net.total_capacitance;
 
@@ -117,7 +138,10 @@ impl Netlist {
 
         let report = NetCapReport {
             net_name: net_name.to_owned(),
-            total_cap: total_cap,
+            total_cap: NetCapForAggressor {
+                aggressor: AggrNet::Total,
+                cap: total_cap,
+            },
             table: per_aggressor,
         };
         Ok(report)
@@ -126,7 +150,7 @@ impl Netlist {
     pub fn get_layer_capacitors(
         &self,
         net_name: &str,
-        aggressor_name: Option<&str>,
+        aggressor_net: AggrNet,
     ) -> Result<LayerCapReport> {
         let idx_self = self.nets_map.get(net_name).context("Net name not found")?;
 
@@ -161,7 +185,7 @@ impl Netlist {
                 }
 
                 let other_net = self.all_nodes[other_node].of_net;
-                if let Some(name) = aggressor_name {
+                if let AggrNet::Net(ref name) = aggressor_net {
                     let idx_aggressor = *self.nets_map.get(name).context("Net name not found")?;
                     if other_net != idx_aggressor {
                         continue;
@@ -186,7 +210,7 @@ impl Netlist {
 
         let report = LayerCapReport {
             net_name: net_name.to_owned(),
-            aggressor_name: aggressor_name.map(|s| s.to_owned()),
+            aggressor_net,
             total_cap: total_capacitance,
             table: per_layer,
         };

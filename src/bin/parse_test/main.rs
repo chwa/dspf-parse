@@ -1,6 +1,6 @@
 use color_eyre::Result;
 
-use dspf_parse::dspf::Dspf;
+use dspf_parse::dspf::{netlist::AggrNet, Dspf};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -16,9 +16,9 @@ fn main() -> Result<()> {
 
     dbg!(nl.get_net_capacitors("out").unwrap());
 
-    dbg!(nl.get_layer_capacitors("out", None).unwrap());
+    dbg!(nl.get_layer_capacitors("out", AggrNet::Total).unwrap());
 
-    dbg!(nl.get_layer_capacitors("out", Some("ngate")).unwrap());
+    dbg!(nl.get_layer_capacitors("out", AggrNet::Net(String::from("ngate"))).unwrap());
 
     // dbg!(dspf);
 

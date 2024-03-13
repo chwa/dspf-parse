@@ -4,8 +4,8 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use dspf_parse::dspf::Dspf;
 use dspf_parse::dspf::LoadStatus;
+use dspf_parse::dspf::{netlist::AggrNet, Dspf};
 
 use color_eyre::Result;
 
@@ -16,8 +16,8 @@ use crate::{
 
 pub enum Action {
     SelectMenuOption(usize),
-    SelectNet(String),
-    SelectNetPair(String, String),
+    SelectVictimNet(Option<String>),
+    SelectAggrNet(Option<AggrNet>),
     Esc,
     Quit,
     None,

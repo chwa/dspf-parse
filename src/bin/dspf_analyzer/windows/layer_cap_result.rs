@@ -1,10 +1,9 @@
-use crate::util::{eng_format, eng_format_scale};
+use crate::util::{eng_format_scale, line_bar};
 use crate::{app::Action, event::Event};
 use dspf_parse::dspf::netlist::LayerCapReport;
 use ratatui::{prelude::*, widgets::*};
 
 use super::net_cap_main::focus_style;
-use super::net_cap_result::line_bar;
 
 pub struct LayerCapResultWidget {
     pub focus: bool,
@@ -50,7 +49,7 @@ impl Widget for &mut LayerCapResultWidget {
             Constraint::Fill(1),
             Constraint::Fill(1),
             Constraint::Length(11),
-            Constraint::Length(8),
+            Constraint::Length(10),
             Constraint::Length(7),
         ];
         let table = Table::new(rows, widths).block(
