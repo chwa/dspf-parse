@@ -14,11 +14,15 @@ fn main() -> Result<()> {
 
     let nl = dspf.netlist.unwrap();
 
-    dbg!(nl.get_net_capacitors("out").unwrap());
+    let idx = nl.nets_map.get("X236/14").unwrap();
 
-    dbg!(nl.get_layer_capacitors("out", AggrNet::Total).unwrap());
+    dbg!(nl.all_nets.get(*idx));
 
-    dbg!(nl.get_layer_capacitors("out", AggrNet::Net(String::from("ngate"))).unwrap());
+    // dbg!(nl.get_net_capacitors("out").unwrap());
+
+    // dbg!(nl.get_layer_capacitors("out", AggrNet::Total).unwrap());
+
+    // dbg!(nl.get_layer_capacitors("out", AggrNet::Net(String::from("ngate"))).unwrap());
 
     // dbg!(dspf);
 

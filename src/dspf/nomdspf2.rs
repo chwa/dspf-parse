@@ -111,6 +111,7 @@ impl Dspf {
                 });
                 nodes_map.insert(net_name.clone(), node_idx);
                 netlist.all_nodes[node_idx].of_net = net_idx;
+                netlist.all_nets[net_idx].sub_nets.push(node_idx);
             }
 
             for mut node in nodes {
