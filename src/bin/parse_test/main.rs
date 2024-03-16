@@ -1,6 +1,6 @@
 use color_eyre::Result;
 
-use dspf_parse::dspf::{netlist::AggrNet, Dspf};
+use dspf_parse::dspf::Dspf;
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
