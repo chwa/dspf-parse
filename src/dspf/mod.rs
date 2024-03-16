@@ -1,9 +1,8 @@
 mod nomutil;
 
-pub mod netlist2;
-pub use netlist2 as netlist;
-mod nomdspf2;
-pub use nomdspf2::Dspf;
+pub mod netlist;
+mod nomdspf;
+pub use nomdspf::Dspf;
 
 /// Load progress to be shared with another thread through Arc<Mutex>
 #[derive(Default)]
