@@ -1,8 +1,12 @@
 pub mod layer_cap_result;
 pub mod main_menu;
+pub mod multi_node_selection;
 pub mod net_cap_main;
 pub mod net_cap_result;
-pub mod net_cap_selection;
+pub mod net_selection;
+pub mod res_main;
+pub mod res_result;
+pub mod status_bar;
 
 use std::sync::{Arc, Mutex};
 
@@ -15,6 +19,7 @@ use crate::{app::Action, event::Event};
 
 use self::main_menu::MainMenuUI;
 use self::net_cap_main::NetCapMainUI;
+use self::res_main::ResMainUI;
 
 pub trait Render {
     fn render(&mut self, frame: &mut Frame);
@@ -25,6 +30,7 @@ pub enum Window {
     Blank(BlankUI),
     MainMenu(MainMenuUI),
     NetCap(NetCapMainUI),
+    Res(ResMainUI),
     Progress(ProgressUI),
 }
 use Window as W;
@@ -41,6 +47,7 @@ impl Render for Window {
             W::Blank(ui) => ui.render(frame),
             W::MainMenu(ui) => ui.render(frame),
             W::NetCap(ui) => ui.render(frame),
+            W::Res(ui) => ui.render(frame),
             W::Progress(ui) => ui.render(frame),
         }
     }
@@ -49,6 +56,7 @@ impl Render for Window {
             W::Blank(ui) => ui.handle_event(event),
             W::MainMenu(ui) => ui.handle_event(event),
             W::NetCap(ui) => ui.handle_event(event),
+            W::Res(ui) => ui.handle_event(event),
             W::Progress(ui) => ui.handle_event(event),
         }
     }

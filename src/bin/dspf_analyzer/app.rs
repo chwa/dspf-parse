@@ -11,12 +11,15 @@ use color_eyre::Result;
 
 use crate::{
     tui::Tui,
-    windows::{main_menu::MainMenuUI, net_cap_main::NetCapMainUI, ProgressUI, Render, Window},
+    windows::{
+        main_menu::MainMenuUI, net_cap_main::NetCapMainUI, res_main::ResMainUI, ProgressUI, Render,
+        Window,
+    },
 };
 
 pub enum Action {
     SelectMenuOption(usize),
-    SelectVictimNet(Option<String>),
+    SelectNet(Option<String>),
     SelectAggrNet(Option<AggrNet>),
     Esc,
     Quit,
@@ -105,11 +108,18 @@ impl App {
     }
 
     fn main_menu(&mut self, selection: usize) {
-        if selection == 0 {
-            self.current_ui =
-                Window::NetCap(NetCapMainUI::new(self.dspf.as_ref().unwrap().clone()));
-        } else if selection == 1 {
-            self.quit();
+        match selection {
+            0 => {
+                self.current_ui =
+                    Window::NetCap(NetCapMainUI::new(self.dspf.as_ref().unwrap().clone()));
+            }
+            1 => {
+                self.current_ui = Window::Res(ResMainUI::new(self.dspf.as_ref().unwrap().clone()));
+            }
+            2 => {
+                self.quit();
+            }
+            _ => {}
         }
     }
 

@@ -14,18 +14,22 @@ pub struct NetSelectionWidget {
     pub nets: Vec<NetInfo>,
     pub search_string: String,
     pub menu: ListSelect<NetInfo>,
+    title: String,
     menu_height: u16,
+    enter_to_select: bool,
 }
 
 impl NetSelectionWidget {
-    pub fn new(mut nets: Vec<NetInfo>) -> Self {
+    pub fn new(mut nets: Vec<NetInfo>, title: &str, enter_to_select: bool) -> Self {
         nets.sort_by_key(|info| (info.net_type.clone(), info.name.clone()));
         let mut ui = Self {
             focus: false,
             nets,
             search_string: String::from("*"),
             menu: ListSelect::new(vec![]),
+            title: title.to_owned(),
             menu_height: 1,
+            enter_to_select,
         };
 
         ui.update_list();
@@ -56,7 +60,7 @@ impl NetSelectionWidget {
         self.menu = ListSelect::new(filtered);
         self.menu.select_state(selection);
 
-        Action::SelectVictimNet(selection.map(|pos| self.menu.items[pos].name.clone()))
+        Action::SelectNet(selection.map(|pos| self.menu.items[pos].name.clone()))
     }
 
     fn handle_backspace(&mut self) -> Action {
@@ -78,7 +82,10 @@ impl NetSelectionWidget {
             _ => 0, // not possible
         };
         let net_name = self.menu.items[pos].name.clone();
-        Action::SelectVictimNet(Some(net_name))
+        match self.enter_to_select {
+            false => Action::SelectNet(Some(net_name)),
+            true => Action::None,
+        }
     }
 
     pub fn handle_event(&mut self, event: &Event) -> Action {
@@ -90,6 +97,13 @@ impl NetSelectionWidget {
                         KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown => {
                             self.handle_arrow(key_event.code)
                         }
+                        KeyCode::Enter => match self.menu.state.selected() {
+                            Some(pos) => {
+                                let net_name = self.menu.items[pos].name.clone();
+                                Action::SelectNet(Some(net_name))
+                            }
+                            None => Action::None,
+                        },
                         KeyCode::Esc => Action::Esc,
                         KeyCode::Backspace => self.handle_backspace(),
                         KeyCode::Char(c) => self.handle_search_char(c),
@@ -118,7 +132,9 @@ impl Widget for &mut NetSelectionWidget {
 
         let fs = focus_style(self.focus);
 
-        Paragraph::new("\n  Victim net:").style(fs.1).render(rows_layout[0], buf);
+        Paragraph::new(format!("\n  {}", self.title))
+            .style(fs.1)
+            .render(rows_layout[0], buf);
 
         let list = List::new(self.menu.items.iter().map(|net| match net.net_type {
             NetType::GroundNode => format!(" ⏚  {}", net.name),

@@ -1,4 +1,4 @@
-use crate::util::{eng_format_scale, line_bar};
+use crate::util::{eng_format_cap, line_bar};
 use crate::{app::Action, event::Event};
 use crossterm::event::KeyCode;
 use dspf_parse::dspf::netlist::{AggrNet, NetCapForAggressor, NetCapReport};
@@ -134,7 +134,7 @@ impl Widget for &mut NetCapResultWidget {
             .iter()
             .map(|x| {
                 let col1 = Line::raw(x.aggressor.to_string());
-                let col2 = Line::raw(eng_format_scale(x.cap, total_c));
+                let col2 = Line::raw(eng_format_cap(x.cap, total_c));
                 let mut col3 = line_bar(12, x.cap / total_c);
                 let col4 = Line::raw(format!("{:5.1}%", 100.0 * x.cap / total_c));
                 let mut sty = Style::new();

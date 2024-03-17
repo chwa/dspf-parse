@@ -33,9 +33,19 @@ pub fn eng_format_scale(value: f64, value_for_scale: f64) -> String {
     let suffix = option.1;
 
     format!(
-        "{mant:>5.prec$} {suffix}F",
+        "{mant:>5.prec$} {suffix}",
         prec = (3 + option.0 - log_int) as usize
     )
+}
+
+pub fn eng_format_cap(value: f64, value_for_scale: f64) -> String {
+    let s = eng_format_scale(value, value_for_scale);
+    format!("{}F", s)
+}
+
+pub fn eng_format_res(value: f64, value_for_scale: f64) -> String {
+    let s = eng_format_scale(value, value_for_scale);
+    format!("{}Ω", s)
 }
 
 // https://docs.rs/ratatui/latest/src/ratatui/widgets/gauge.rs.html#221

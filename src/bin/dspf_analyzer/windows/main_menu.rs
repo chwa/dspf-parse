@@ -26,6 +26,7 @@ impl MainMenuUI {
             num_capacitors: dspf.netlist.as_ref().unwrap().capacitors.len(),
             menu: ListSelect::new(vec![
                 "Report capacitance for net...".to_string(),
+                "Path resistance [experimental]...".to_string(),
                 // "Report capacitance between 2 nets...".to_string(),
                 // "Report path resistance...".to_string(),
                 "Quit".to_string(),

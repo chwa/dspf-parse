@@ -8,7 +8,8 @@ use std::rc::Rc;
 
 use super::layer_cap_result::LayerCapResultWidget;
 use super::net_cap_result::NetCapResultWidget;
-use super::net_cap_selection::NetSelectionWidget;
+use super::net_selection::NetSelectionWidget;
+use super::status_bar::StatusBar;
 use super::Render;
 
 #[derive(PartialEq)]
@@ -47,7 +48,7 @@ impl NetCapMainUI {
 
         let mut ui = Self {
             dspf,
-            net_selection_widget: NetSelectionWidget::new(nets),
+            net_selection_widget: NetSelectionWidget::new(nets, "Victim net:", false),
             net_cap_result_widget: NetCapResultWidget::new(NetCapReport::default()),
             layer_cap_result_widget: LayerCapResultWidget::new(LayerCapReport::default()),
             focus: FocusUI::Selection,
@@ -88,7 +89,7 @@ impl NetCapMainUI {
 
     fn handle_action(&mut self, action: Action) {
         match action {
-            Action::SelectVictimNet(net) => {
+            Action::SelectNet(net) => {
                 let report = match &net {
                     Some(net_name) => {
                         self.dspf.netlist.as_ref().unwrap().get_net_capacitors(net_name).unwrap()
@@ -131,14 +132,11 @@ impl NetCapMainUI {
 
 impl Render for NetCapMainUI {
     fn render(&mut self, frame: &mut Frame) {
-        let rows_layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(vec![
-                Constraint::Length(1),
-                Constraint::Fill(1),
-                Constraint::Length(1),
-            ])
-            .split(frame.size());
+        let mut status_bar = StatusBar::default()
+            .top_left("dspf-analyzer")
+            .bottom_left(&self.dspf.as_ref().file_path);
+        frame.render_widget(&mut status_bar, frame.size());
+
         let cols_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![
@@ -146,57 +144,13 @@ impl Render for NetCapMainUI {
                 Constraint::Fill(2),
                 Constraint::Fill(2),
             ])
-            .split(rows_layout[1]);
-
-        // let titles = vec![" Victim net: ", " Aggressor net: ", " Layer pairs: "];
-
-        // let selected = match self.focus {
-        //     FocusUI::Selection => 0,
-        //     FocusUI::Result => 1,
-        //     FocusUI::Layers => 2,
-        // };
-
-        // let block_inner: Vec<_> = titles
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(i, title)| {
-        //         let b = Block::default()
-        //             .title(*title)
-        //             .title_alignment(Alignment::Center)
-        //             .title_style(match i == selected {
-        //                 true => Style::new().bold(),
-        //                 false => Style::new(),
-        //             })
-        //             .borders(Borders::ALL)
-        //             .border_type(match i == selected {
-        //                 true => BorderType::Thick,
-        //                 false => BorderType::Plain,
-        //             });
-        //         let inner = b.inner(cols_layout[i]);
-        //         frame.render_widget(b, cols_layout[i]);
-        //         inner
-        //     })
-        //     .collect();
+            .split(status_bar.inner);
 
         frame.render_widget(&mut self.net_selection_widget, cols_layout[0]);
 
         // self.selection_ui.render_in_rect(frame, &cols_layout[0]);
         frame.render_widget(&mut self.net_cap_result_widget, cols_layout[1]);
         frame.render_widget(&mut self.layer_cap_result_widget, cols_layout[2]);
-
-        let header = vec![Line::from("dspf_analyzer v0.0.0")];
-
-        frame.render_widget(
-            Paragraph::new(header).style(Style::new().reversed()).alignment(Alignment::Left),
-            rows_layout[0],
-        );
-        let footer = vec![Line::from(self.dspf.as_ref().file_path.clone())];
-        // let text = vec![Line::from("This is just the status bar.")];
-
-        frame.render_widget(
-            Paragraph::new(footer).style(Style::new().reversed()).alignment(Alignment::Left),
-            rows_layout[2],
-        );
     }
 
     fn handle_event(&mut self, event: &Event) -> Action {

@@ -1,4 +1,4 @@
-use crate::util::{eng_format_scale, line_bar};
+use crate::util::{eng_format_cap, line_bar};
 use crate::{app::Action, event::Event};
 use dspf_parse::dspf::netlist::LayerCapReport;
 use ratatui::{prelude::*, widgets::*};
@@ -37,7 +37,7 @@ impl Widget for &mut LayerCapResultWidget {
             .map(|x| {
                 let col1 = Line::raw(&x.layer_names.0);
                 let col2 = Line::raw(&x.layer_names.1);
-                let col3 = Line::raw(eng_format_scale(x.cap, self.report.total_cap));
+                let col3 = Line::raw(eng_format_cap(x.cap, self.report.total_cap));
                 let col4 = line_bar(12, x.cap / self.report.total_cap);
                 let col5 = Line::raw(format!("{:5.1}%", 100.0 * x.cap / self.report.total_cap));
                 Row::new(vec![col1, col2, col3, col4, col5])
