@@ -4,6 +4,7 @@ use dspf_parse::dspf::netlist::NetInfo;
 use dspf_parse::dspf::Dspf;
 use ratatui::prelude::*;
 use ratatui::Frame;
+use std::process::Output;
 use std::rc::Rc;
 
 use super::multi_node_selection::MultiNodeSelectionWidget;
@@ -16,6 +17,7 @@ use super::Render;
 enum FocusUI {
     Inputs,
     Outputs,
+    Result,
 }
 
 pub struct ResMainUI {
@@ -53,18 +55,29 @@ impl ResMainUI {
         use FocusUI::*;
         self.focus = match self.focus {
             Inputs => Outputs,
-            Outputs => Inputs,
+            Outputs => Result,
+            Result => Inputs,
         };
         self.highlight_focused()
     }
 
     fn left(&mut self) {
-        self.focus = FocusUI::Inputs;
+        use FocusUI::*;
+        self.focus = match self.focus {
+            Inputs => Inputs,
+            Outputs => Inputs,
+            Result => Outputs,
+        };
         self.highlight_focused()
     }
 
     fn right(&mut self) {
-        self.focus = FocusUI::Outputs;
+        use FocusUI::*;
+        self.focus = match self.focus {
+            Inputs => Outputs,
+            Outputs => Result,
+            Result => Result,
+        };
         self.highlight_focused()
     }
 
@@ -72,6 +85,7 @@ impl ResMainUI {
         if let Some(widgets) = self.node_selection_widgets.as_mut() {
             widgets.0.focus = self.focus == FocusUI::Inputs;
             widgets.1.focus = self.focus == FocusUI::Outputs;
+            self.result_widget.focus = self.focus == FocusUI::Result;
         }
     }
 
@@ -187,6 +201,7 @@ impl Render for ResMainUI {
                                 action = match self.focus {
                                     FocusUI::Inputs => widgets.0.handle_event(event),
                                     FocusUI::Outputs => widgets.1.handle_event(event),
+                                    FocusUI::Result => self.result_widget.handle_event(event),
                                 };
                             } else {
                                 action = Action::None;

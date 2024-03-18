@@ -159,6 +159,7 @@ impl<T> ListSelect<T> {
     }
 }
 
+#[derive(Default)]
 pub struct TableSelect<T> {
     pub state: TableState,
     pub items: Vec<T>,

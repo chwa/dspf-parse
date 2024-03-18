@@ -221,7 +221,7 @@ impl Netlist {
         .unwrap();
 
         let x = &conductance * &incidence; // cond.len() x nodes.len()
-        let g_matrix = incidence.into_transpose().to_col_major().unwrap() * x;
+        let g_matrix = incidence.to_owned().unwrap().into_transpose().to_col_major().unwrap() * x;
 
         let mut b: Col<f64> = Col::zeros(nodes.len());
 
@@ -237,10 +237,32 @@ impl Netlist {
         for n in output_nodes_in_order {
             voltages_in_order.push(voltages[nodes[..num_outputs].binary_search(&n).unwrap()]);
         }
+        let total_res =
+            voltages_in_order.iter().fold(0.0, |acc, x| acc + x) / voltages_in_order.len() as f64;
+
+        let v_res = incidence * voltages;
+
+        let power = v_res.to_owned().column_vector_into_diagonal() * (conductance * v_res);
+
+        let mut power_per_layer: HashMap<u8, f64> = HashMap::new();
+
+        for (res, value) in net.resistors.iter().zip(power.as_slice().iter()) {
+            *power_per_layer.entry(res.layer).or_insert(0.0) += value;
+        }
+
+        let table_layers: Vec<_> = power_per_layer
+            .iter()
+            .map(|(i, value)| ResForLayer {
+                layer_name: self.layer_map[i].clone(),
+                res: *value,
+            })
+            .collect();
+
         Ok(ResReport {
             net_name: net_name.to_owned(),
             input_nodes: vec![input_name.to_owned()],
-            table: output_names
+            total_res,
+            table_outputs: output_names
                 .iter()
                 .zip(voltages_in_order.iter())
                 .map(|(n, v)| NodeResistance {
@@ -248,6 +270,7 @@ impl Netlist {
                     resistance: *v,
                 })
                 .collect(),
+            table_layers,
         })
     }
 }
@@ -393,17 +416,25 @@ impl fmt::Display for AggrNet {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct NodeResistance {
     pub node: String,
     pub resistance: f64,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ResForLayer {
+    pub layer_name: String,
+    pub res: f64,
 }
 
 #[derive(Default, Debug)]
 pub struct ResReport {
     pub net_name: String,
     pub input_nodes: Vec<String>,
-    pub table: Vec<NodeResistance>,
+    pub total_res: f64,
+    pub table_outputs: Vec<NodeResistance>,
+    pub table_layers: Vec<ResForLayer>,
 }
 
 #[derive(Debug, PartialEq, PartialOrd)]
