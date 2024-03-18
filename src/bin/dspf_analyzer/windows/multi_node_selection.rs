@@ -9,6 +9,7 @@ use crate::event::Event;
 use super::main_menu::ListSelect;
 use super::net_cap_main::focus_style;
 
+#[derive(Default)]
 pub struct MultiNodeSelectionWidget {
     pub focus: bool,
     pub nodes: Vec<NodeInfo>,
@@ -16,16 +17,18 @@ pub struct MultiNodeSelectionWidget {
     pub menu: ListSelect<NodeInfo>,
     title: String,
     menu_height: u16,
+    excluded: Vec<NodeInfo>,
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DisplayNodeType {
+    #[default]
     SubcktPin,
     InstPin,
 }
 
 // consider moving this to netlist.rs and using in Node struct?
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NodeInfo {
     pub name: String,
     pub node_type: DisplayNodeType,
@@ -64,10 +67,16 @@ impl MultiNodeSelectionWidget {
             menu: ListSelect::new(vec![]),
             title: title.to_owned(),
             menu_height: 1,
+            excluded: Vec::new(),
         };
 
         ui.update_list();
         ui
+    }
+
+    pub fn exclude(&mut self, nodes: Vec<NodeInfo>) {
+        self.excluded = nodes;
+        self.update_list();
     }
 
     pub fn selected(&self) -> Option<String> {
@@ -79,8 +88,12 @@ impl MultiNodeSelectionWidget {
         let filtered: Vec<NodeInfo> = match glob {
             Ok(g) => {
                 let matcher = g.compile_matcher();
-                let mut nodes: Vec<_> =
-                    self.nodes.iter().filter(|net| matcher.is_match(&net.name)).cloned().collect();
+                let mut nodes: Vec<_> = self
+                    .nodes
+                    .iter()
+                    .filter(|net| matcher.is_match(&net.name) && !self.excluded.contains(net))
+                    .cloned()
+                    .collect();
                 nodes.sort_by_key(|info| (info.node_type.clone(), info.name.clone()));
                 nodes
             }
@@ -94,8 +107,7 @@ impl MultiNodeSelectionWidget {
         self.menu = ListSelect::new(filtered);
         self.menu.select_state(selection);
 
-        // Action::SelectNet(selection.map(|pos| self.menu.items[pos].name.clone()))
-        Action::None
+        Action::NodesChanged
     }
 
     fn handle_backspace(&mut self) -> Action {

@@ -116,6 +116,7 @@ impl Render for MainMenuUI {
     }
 }
 
+#[derive(Default)]
 pub struct ListSelect<T> {
     pub state: ListState,
     pub items: Vec<T>,

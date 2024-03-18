@@ -21,6 +21,7 @@ pub enum Action {
     SelectMenuOption(usize),
     SelectNet(Option<String>),
     SelectAggrNet(Option<AggrNet>),
+    NodesChanged,
     Esc,
     Quit,
     None,

@@ -71,7 +71,7 @@ pub fn line_bar(width: usize, frac: f64) -> Line<'static> {
     let width = width - 2;
 
     // reversed direction: use 1-frac and inver the color...
-    let frac = 1.0 - frac.clamp(0.0, 1.0);
+    let frac = 1.0 - frac.clamp(0.000001, 1.0);
 
     let bar_width = frac * width as f64;
     let mut bar = symbols::block::FULL.repeat(bar_width.floor() as usize);
