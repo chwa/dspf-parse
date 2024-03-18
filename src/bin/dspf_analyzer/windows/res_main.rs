@@ -119,7 +119,7 @@ impl ResMainUI {
             let report = netlist
                 .get_path_resistance(
                     self.selected_net.as_ref().unwrap(),
-                    &inputs[0],
+                    inputs.as_slice(),
                     outputs.as_slice(),
                 )
                 .unwrap();

@@ -152,15 +152,20 @@ impl Netlist {
     pub fn get_path_resistance(
         &self,
         net_name: &str,
-        input_name: &str,
+        input_names: &[String],
         output_names: &[String],
     ) -> Result<ResReport> {
         let net = self.get_net(net_name).wrap_err("Net not found.")?;
 
-        net.subnodes
-            .iter()
-            .find(|&&node_idx| self.all_nodes[node_idx].name == input_name)
-            .ok_or_eyre("Input node not found.")?;
+        let mut input_nodes_in_order: Vec<usize> = Vec::new();
+        for node_name in input_names {
+            let n = net
+                .subnodes
+                .iter()
+                .find(|&&node_idx| self.all_nodes[node_idx].name == *node_name)
+                .ok_or_eyre(format!("Input node not found: {}.", node_name))?;
+            input_nodes_in_order.push(*n);
+        }
 
         // Check that output nodes exist and collect node indices in the order that the caller requested
         let mut output_nodes_in_order: Vec<usize> = Vec::new();
@@ -169,7 +174,7 @@ impl Netlist {
                 .subnodes
                 .iter()
                 .find(|&&node_idx| self.all_nodes[node_idx].name == *node_name)
-                .ok_or_eyre(format!("Input node not found: {}.", node_name))?;
+                .ok_or_eyre(format!("Output node not found: {}.", node_name))?;
             output_nodes_in_order.push(*n);
         }
 
@@ -177,7 +182,7 @@ impl Netlist {
             .subnodes
             .iter()
             .copied()
-            .filter(|node| self.all_nodes[*node].name != input_name)
+            .filter(|node| !input_names.contains(&self.all_nodes[*node].name))
             .partition(|node| output_names.contains(&self.all_nodes[*node].name));
 
         let num_outputs = output_nodes.len();
@@ -260,7 +265,7 @@ impl Netlist {
 
         Ok(ResReport {
             net_name: net_name.to_owned(),
-            input_nodes: vec![input_name.to_owned()],
+            input_nodes: input_names.to_vec(),
             total_res,
             table_outputs: output_names
                 .iter()
@@ -346,8 +351,9 @@ mod tests {
 
         nl.add_net(net);
 
+        let inputs = vec![String::from("mynet")];
         let outputs = vec![String::from("node_3"), String::from("node_2")];
-        nl.get_path_resistance("mynet", "mynet", &outputs)?;
+        nl.get_path_resistance("mynet", &inputs, &outputs)?;
         Ok(())
     }
 }
