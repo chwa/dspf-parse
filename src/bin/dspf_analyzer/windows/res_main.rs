@@ -1,6 +1,7 @@
 use crate::{app::Action, event::Event};
 use crossterm::event::KeyCode;
 use dspf_parse::dspf::netlist::NetInfo;
+use dspf_parse::dspf::netlist::ResReport;
 use dspf_parse::dspf::Dspf;
 use ratatui::prelude::*;
 use ratatui::Frame;
@@ -31,14 +32,8 @@ pub struct ResMainUI {
 
 impl ResMainUI {
     pub fn new(dspf: Rc<Dspf>) -> Self {
-        let mut nets: Vec<NetInfo> = dspf
-            .netlist
-            .as_ref()
-            .unwrap()
-            .all_nets
-            .iter()
-            .map(|net| net.info.clone())
-            .collect();
+        let mut nets: Vec<NetInfo> =
+            dspf.netlist.all_nets.iter().map(|net| net.info.clone()).collect();
         nets.sort_by_key(|info| (info.net_type.clone(), info.name.clone()));
 
         Self {
@@ -94,11 +89,10 @@ impl ResMainUI {
                 self.selected_net = net;
 
                 if let Some(net_name) = &self.selected_net {
-                    let netlist = self.dspf.netlist.as_ref().unwrap();
-                    let idx = netlist.nets_map[net_name];
-                    let net = &netlist.all_nets[idx];
+                    let idx = self.dspf.netlist.nets_map[net_name];
+                    let net = &self.dspf.netlist.all_nets[idx];
                     let nodes: Vec<_> =
-                        net.subnodes.iter().map(|idx| &netlist.all_nodes[*idx]).collect();
+                        net.subnodes.iter().map(|idx| &self.dspf.netlist.all_nodes[*idx]).collect();
                     self.input_selection_widget =
                         MultiNodeSelectionWidget::new(nodes.clone(), "Input node(s):");
                     self.output_selection_widget =
@@ -125,32 +119,30 @@ impl ResMainUI {
     }
 
     fn analyze(&mut self) {
-        let inputs: Vec<_> = self
-            .input_selection_widget
-            .menu
-            .items
-            .iter()
-            .map(|info| info.name.clone())
-            .collect();
-        let outputs: Vec<_> = self
-            .output_selection_widget
-            .menu
-            .items
-            .iter()
-            .map(|info| info.name.clone())
-            .collect();
+        if let Some(net) = &self.selected_net {
+            let inputs: Vec<_> = self
+                .input_selection_widget
+                .menu
+                .items
+                .iter()
+                .map(|info| info.name.clone())
+                .collect();
+            let outputs: Vec<_> = self
+                .output_selection_widget
+                .menu
+                .items
+                .iter()
+                .map(|info| info.name.clone())
+                .collect();
 
-        let netlist = self.dspf.netlist.as_ref().unwrap();
+            let report = self
+                .dspf
+                .netlist
+                .get_path_resistance(net, inputs.as_slice(), outputs.as_slice())
+                .unwrap_or(ResReport::default());
 
-        let report = netlist
-            .get_path_resistance(
-                self.selected_net.as_ref().unwrap(),
-                inputs.as_slice(),
-                outputs.as_slice(),
-            )
-            .unwrap();
-
-        self.result_widget = ResResultWidget::new(report)
+            self.result_widget = ResResultWidget::new(report)
+        }
     }
 }
 
@@ -200,7 +192,7 @@ impl Render for ResMainUI {
                             self.tab();
                             Action::None
                         }
-                        KeyCode::Esc => Action::Esc,
+                        KeyCode::Esc => Action::MainMenu,
                         KeyCode::Enter => {
                             match self.selected_net {
                                 None => {

@@ -17,12 +17,14 @@ use std::{collections::HashMap, fs};
 
 use crate::dspf::LoadStatus;
 
+use color_eyre::{eyre::OptionExt, Result};
+
 #[derive(Debug)]
 pub struct Dspf {
     pub info: DspfInfo,
     pub file_path: String,
     pub file_size: u64,
-    pub netlist: Option<Netlist>,
+    pub netlist: Netlist,
 }
 
 #[derive(Debug)]
@@ -41,9 +43,9 @@ struct Subckt {
 }
 
 impl Dspf {
-    pub fn load(file_path: &str, status: Option<Arc<Mutex<LoadStatus>>>) -> Dspf {
-        let file_size = fs::metadata(file_path).unwrap().len();
-        let data = fs::read_to_string(file_path).unwrap();
+    pub fn load(file_path: &str, status: Option<Arc<Mutex<LoadStatus>>>) -> Result<Dspf> {
+        let file_size = fs::metadata(file_path)?.len();
+        let data = fs::read_to_string(file_path)?;
 
         let mut bytes_processed = 0_usize;
 
@@ -55,7 +57,7 @@ impl Dspf {
                 ..LoadStatus::default()
             };
         }
-        let (mut tail, info) = parse_dspf_info(&data).map_err(|err| err.to_owned()).unwrap();
+        let (mut tail, info) = parse_dspf_info(&data).map_err(|err| err.to_owned())?;
 
         let mut instance_sections: Vec<(usize, &str)> = Vec::new();
 
@@ -63,7 +65,7 @@ impl Dspf {
         let mut nodes_map: HashMap<String, usize> = HashMap::new();
 
         let mut netlist = Netlist {
-            layer_map: info.layer_map.as_ref().unwrap().clone(),
+            layer_map: info.layer_map.as_ref().ok_or_eyre("No layer map defined.")?.clone(),
             ..Netlist::default()
         };
 
@@ -92,7 +94,7 @@ impl Dspf {
             let block_start = tail.as_ptr() as usize;
 
             let (t, (net, nodes)) =
-                read_net_block(tail, &info.subckt.ports).map_err(|err| err.to_owned()).unwrap();
+                read_net_block(tail, &info.subckt.ports).map_err(|err| err.to_owned())?;
 
             bytes_processed += (t.as_ptr() as usize) - block_start;
 
@@ -142,7 +144,11 @@ impl Dspf {
         }
 
         let layer_map_inv: HashMap<String, u8> = HashMap::from_iter(
-            info.layer_map.as_ref().unwrap().iter().map(|(k, v)| (v.clone(), *k)),
+            info.layer_map
+                .as_ref()
+                .ok_or_eyre("No layer map defined.")?
+                .iter()
+                .map(|(k, v)| (v.clone(), *k)),
         );
 
         if let Some(ref s) = status {
@@ -151,7 +157,7 @@ impl Dspf {
         }
 
         for (_x, inst_slice) in instance_sections {
-            let (_, instances) = parse_instances(inst_slice).map_err(|err| err.to_owned()).unwrap();
+            let (_, instances) = parse_instances(inst_slice).map_err(|err| err.to_owned())?;
             for inst in instances {
                 match inst {
                     ElementDef::R {
@@ -162,7 +168,7 @@ impl Dspf {
                         let r = Resistor {
                             nodes: (nodes_map[&nodes.0], nodes_map[&nodes.1]),
                             value,
-                            layer: layer_map_inv[&layer.unwrap()],
+                            layer: layer.as_ref().map(|l| layer_map_inv[l]),
                         };
                         let net = netlist.all_nodes[r.nodes.0].of_net;
                         netlist.all_nets[net].resistors.push(r);
@@ -193,17 +199,17 @@ impl Dspf {
             }
         }
 
-        Dspf {
+        Ok(Dspf {
             info,
             file_path: file_path.to_string(),
             file_size,
-            netlist: Some(netlist),
-        }
+            netlist,
+        })
     }
 }
 
 #[test]
-fn test_dspf() -> color_eyre::Result<()> {
+fn test_dspf() -> Result<()> {
     let file_path = "DSPF/nmos_trcp70.dspf";
 
     let _dspf = Dspf::load(file_path, None);
@@ -213,12 +219,12 @@ fn test_dspf() -> color_eyre::Result<()> {
 }
 
 #[test]
-fn test_r_report() -> color_eyre::Result<()> {
+fn test_r_report() -> Result<()> {
     let file_path = "DSPF/nmos_trcp70.dspf";
 
-    let dspf = Dspf::load(file_path, None);
+    let dspf = Dspf::load(file_path, None)?;
 
-    let nl = dspf.netlist.unwrap();
+    let nl = dspf.netlist;
     let net = &nl.all_nets[nl.nets_map["ngate"]];
     let node_names: Vec<_> = net
         .subnodes
@@ -233,7 +239,7 @@ fn test_r_report() -> color_eyre::Result<()> {
         })
         .collect();
 
-    let report = nl.get_path_resistance("ngate", "ngate", &node_names).unwrap();
+    let report = nl.get_path_resistance("ngate", &vec![String::from("ngate")], &node_names)?;
 
     dbg!(report);
 

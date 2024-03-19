@@ -36,14 +36,8 @@ pub struct NetCapMainUI {
 
 impl NetCapMainUI {
     pub fn new(dspf: Rc<Dspf>) -> Self {
-        let mut nets: Vec<NetInfo> = dspf
-            .netlist
-            .as_ref()
-            .unwrap()
-            .all_nets
-            .iter()
-            .map(|net| net.info.clone())
-            .collect();
+        let mut nets: Vec<NetInfo> =
+            dspf.netlist.all_nets.iter().map(|net| net.info.clone()).collect();
         nets.sort_by_key(|info| (info.net_type.clone(), info.name.clone()));
 
         let mut ui = Self {
@@ -91,19 +85,19 @@ impl NetCapMainUI {
         match action {
             Action::SelectNet(net) => {
                 let report = match &net {
-                    Some(net_name) => {
-                        self.dspf.netlist.as_ref().unwrap().get_net_capacitors(net_name).unwrap()
-                    }
+                    Some(net_name) => self
+                        .dspf
+                        .netlist
+                        .get_net_capacitors(net_name)
+                        .unwrap_or(NetCapReport::default()),
                     None => NetCapReport::default(),
                 };
                 let layer_report = match net {
                     Some(net_name) => self
                         .dspf
                         .netlist
-                        .as_ref()
-                        .unwrap()
                         .get_layer_capacitors(&net_name, AggrNet::Total)
-                        .unwrap(),
+                        .unwrap_or(LayerCapReport::default()),
                     None => LayerCapReport::default(),
                 };
                 self.net_cap_result_widget = NetCapResultWidget::new(report);
@@ -111,18 +105,18 @@ impl NetCapMainUI {
                 self.highlight_focused();
             }
             Action::SelectAggrNet(aggr_net) => {
-                let report_layers = match aggr_net {
-                    Some(aggr) => self
-                        .dspf
-                        .netlist
-                        .as_ref()
-                        .unwrap()
-                        .get_layer_capacitors(&self.net_selection_widget.selected().unwrap(), aggr)
-                        .unwrap(),
-                    None => LayerCapReport::default(),
-                };
-                self.layer_cap_result_widget = LayerCapResultWidget::new(report_layers);
-                self.highlight_focused();
+                if let Some(net_name) = self.net_selection_widget.selected() {
+                    let report_layers = match aggr_net {
+                        Some(aggr) => self
+                            .dspf
+                            .netlist
+                            .get_layer_capacitors(&net_name, aggr)
+                            .unwrap_or(LayerCapReport::default()),
+                        None => LayerCapReport::default(),
+                    };
+                    self.layer_cap_result_widget = LayerCapResultWidget::new(report_layers);
+                    self.highlight_focused();
+                }
             }
 
             _ => {}
@@ -171,7 +165,7 @@ impl Render for NetCapMainUI {
                             self.tab();
                             Action::None
                         }
-                        KeyCode::Esc => Action::Esc,
+                        KeyCode::Esc => Action::MainMenu,
 
                         // delegate others to the currently focused widget
                         _ => {

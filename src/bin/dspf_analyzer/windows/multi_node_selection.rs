@@ -140,7 +140,7 @@ impl MultiNodeSelectionWidget {
                         KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown => {
                             self.handle_arrow(key_event.code)
                         }
-                        KeyCode::Esc => Action::Esc,
+                        KeyCode::Esc => Action::MainMenu,
                         KeyCode::Backspace => self.handle_backspace(),
                         KeyCode::Char(c) => self.handle_search_char(c),
                         _ => Action::None,

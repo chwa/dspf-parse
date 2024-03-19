@@ -59,8 +59,7 @@ impl Netlist {
                 cap: value,
             });
         }
-        per_aggressor
-            .sort_by(|a, b| b.cap.partial_cmp(&a.cap).unwrap().then(a.aggressor.cmp(&b.aggressor)));
+        per_aggressor.sort_by(|a, b| b.cap.total_cmp(&a.cap).then(a.aggressor.cmp(&b.aggressor)));
 
         let mut total_cap = net.total_capacitance;
 
@@ -138,7 +137,7 @@ impl Netlist {
                 cap: value,
             });
         }
-        per_layer.sort_by(|a, b| b.cap.partial_cmp(&a.cap).unwrap());
+        per_layer.sort_by(|a, b| b.cap.total_cmp(&a.cap));
 
         let report = LayerCapReport {
             net_name: net_name.to_owned(),
@@ -212,8 +211,7 @@ impl Netlist {
         }
 
         let incidence =
-            SparseColMat::try_new_from_triplets(net.resistors.len(), nodes.len(), &entries)
-                .unwrap();
+            SparseColMat::try_new_from_triplets(net.resistors.len(), nodes.len(), &entries)?;
 
         let cond_triplets: Vec<_> =
             conductance.iter().enumerate().map(|(i, &g)| (i, i, g)).collect();
@@ -222,11 +220,10 @@ impl Netlist {
             cond_triplets.len(),
             cond_triplets.len(),
             cond_triplets.as_slice(),
-        )
-        .unwrap();
+        )?;
 
         let x = &conductance * &incidence; // cond.len() x nodes.len()
-        let g_matrix = incidence.to_owned().unwrap().into_transpose().to_col_major().unwrap() * x;
+        let g_matrix = incidence.to_owned()?.into_transpose().to_col_major()? * x;
 
         let mut b: Col<f64> = Col::zeros(nodes.len());
 
@@ -234,7 +231,7 @@ impl Netlist {
             b[i] = 1.0 / num_outputs as f64;
         }
 
-        let llt = g_matrix.sp_cholesky(Side::Lower).unwrap();
+        let llt = g_matrix.sp_cholesky(Side::Lower)?;
 
         let voltages = llt.solve(b);
 
@@ -252,7 +249,9 @@ impl Netlist {
         let mut power_per_layer: HashMap<u8, f64> = HashMap::new();
 
         for (res, value) in net.resistors.iter().zip(power.as_slice().iter()) {
-            *power_per_layer.entry(res.layer).or_insert(0.0) += value;
+            *power_per_layer
+                .entry(res.layer.ok_or_eyre("No layer defined for resistor")?)
+                .or_insert(0.0) += value;
         }
 
         let table_layers: Vec<_> = power_per_layer
@@ -336,17 +335,17 @@ mod tests {
         net.resistors.push(Resistor {
             nodes: (0, 1),
             value: 100.0,
-            layer: 0,
+            layer: Some(0),
         });
         net.resistors.push(Resistor {
             nodes: (1, 2),
             value: 200.0,
-            layer: 0,
+            layer: Some(0),
         });
         net.resistors.push(Resistor {
             nodes: (1, 3),
             value: 300.0,
-            layer: 0,
+            layer: Some(0),
         });
 
         nl.add_net(net);
@@ -522,7 +521,7 @@ impl fmt::Debug for Net {
 pub struct Resistor {
     pub nodes: (usize, usize),
     pub value: f64,
-    pub layer: u8,
+    pub layer: Option<u8>,
 }
 
 #[derive(Debug)]

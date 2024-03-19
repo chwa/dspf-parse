@@ -2,7 +2,10 @@ use bytesize::ByteSize;
 use crossterm::event::KeyCode;
 use ratatui::{prelude::*, widgets::*};
 
-use crate::{app::Action, event::Event};
+use crate::{
+    app::{Action, MainMenuOption},
+    event::Event,
+};
 use dspf_parse::dspf::Dspf;
 
 use super::Render;
@@ -13,24 +16,18 @@ pub struct MainMenuUI {
     pub num_nets: usize,
     pub num_nodes: usize,
     pub num_capacitors: usize,
-    menu: ListSelect<String>,
+    menu: ListSelect<MainMenuOption>,
 }
 
 impl MainMenuUI {
-    pub fn new(dspf: &Dspf) -> Self {
+    pub fn new(dspf: &Dspf, options: &[MainMenuOption]) -> Self {
         Self {
             filename: dspf.file_path.to_owned(),
             filesize: dspf.file_size,
-            num_nets: dspf.netlist.as_ref().unwrap().all_nets.len(),
-            num_nodes: dspf.netlist.as_ref().unwrap().all_nodes.len(),
-            num_capacitors: dspf.netlist.as_ref().unwrap().capacitors.len(),
-            menu: ListSelect::new(vec![
-                "Report capacitance for net...".to_string(),
-                "Path resistance [experimental]...".to_string(),
-                // "Report capacitance between 2 nets...".to_string(),
-                // "Report path resistance...".to_string(),
-                "Quit".to_string(),
-            ]),
+            num_nets: dspf.netlist.all_nets.len(),
+            num_nodes: dspf.netlist.all_nodes.len(),
+            num_capacitors: dspf.netlist.capacitors.len(),
+            menu: ListSelect::new(options.to_vec()),
         }
     }
 }
@@ -75,7 +72,7 @@ impl Render for MainMenuUI {
             layout[0],
         );
 
-        let menu = List::new(self.menu.items.iter().map(AsRef::<str>::as_ref))
+        let menu = List::new(self.menu.items.iter().map(|i| i.to_string()))
             .block(
                 Block::default()
                     .title("Select:")
@@ -102,7 +99,10 @@ impl Render for MainMenuUI {
                             self.menu.down(1);
                             Action::None
                         }
-                        KeyCode::Enter => self.menu.select(),
+                        KeyCode::Enter => match self.menu.state.selected() {
+                            Some(idx) => Action::SelectMenuOption(self.menu.items[idx]),
+                            None => Action::None,
+                        },
                         KeyCode::Esc => Action::Quit,
                         _ => Action::None,
                     }
@@ -149,14 +149,6 @@ impl<T> ListSelect<T> {
     }
     pub fn select_state(&mut self, state: Option<usize>) {
         self.state.select(state);
-    }
-
-    pub fn select(&self) -> Action {
-        match self.state.selected() {
-            // Some(123) => Action::Select(i),
-            Some(i) => Action::SelectMenuOption(i),
-            None => Action::None,
-        }
     }
 }
 

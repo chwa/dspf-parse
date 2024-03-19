@@ -104,7 +104,7 @@ impl NetSelectionWidget {
                             }
                             None => Action::None,
                         },
-                        KeyCode::Esc => Action::Esc,
+                        KeyCode::Esc => Action::MainMenu,
                         KeyCode::Backspace => self.handle_backspace(),
                         KeyCode::Char(c) => self.handle_search_char(c),
                         _ => Action::None,

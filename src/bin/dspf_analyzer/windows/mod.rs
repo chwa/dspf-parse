@@ -113,7 +113,7 @@ impl Render for ProgressUI {
             ])
             .split(inner_area);
 
-        let st = self.status.lock().unwrap();
+        let st = self.status.lock().expect("Mutex::lock() shouldn't fail");
 
         let lines = vec![
             Line::from(format!("{}/{} Bytes", st.loaded_bytes, st.total_bytes)),

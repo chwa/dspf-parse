@@ -10,13 +10,11 @@ fn main() -> Result<()> {
         file_path = &args[1];
     }
 
-    let dspf = Dspf::load(file_path, None);
+    let dspf = Dspf::load(file_path, None)?;
 
-    let nl = dspf.netlist.unwrap();
+    let idx = dspf.netlist.nets_map.get("X236/14").unwrap();
 
-    let idx = nl.nets_map.get("X236/14").unwrap();
-
-    dbg!(nl.all_nets.get(*idx));
+    dbg!(dspf.netlist.all_nets.get(*idx));
 
     // dbg!(nl.get_net_capacitors("out").unwrap());
 

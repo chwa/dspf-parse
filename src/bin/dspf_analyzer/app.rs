@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     rc::Rc,
     sync::{Arc, Mutex},
     thread::{self, JoinHandle},
@@ -18,13 +19,36 @@ use crate::{
 };
 
 pub enum Action {
-    SelectMenuOption(usize),
+    SelectMenuOption(MainMenuOption),
     SelectNet(Option<String>),
     SelectAggrNet(Option<AggrNet>),
     NodesChanged,
-    Esc,
+    MainMenu,
     Quit,
     None,
+}
+
+#[derive(Clone, Copy)]
+pub enum MainMenuOption {
+    CapAnalysis,
+    ResAnalysis,
+    Quit,
+}
+
+static MENU_OPTIONS: [MainMenuOption; 3] = [
+    MainMenuOption::CapAnalysis,
+    MainMenuOption::ResAnalysis,
+    MainMenuOption::Quit,
+];
+
+impl fmt::Display for MainMenuOption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MainMenuOption::CapAnalysis => write!(f, "Report capacitance for net..."),
+            MainMenuOption::ResAnalysis => write!(f, "Path resistance [experimental]..."),
+            MainMenuOption::Quit => write!(f, "Quit"),
+        }
+    }
 }
 
 pub struct App {
@@ -32,7 +56,7 @@ pub struct App {
     pub running: bool,
     pub dspf: Option<Rc<Dspf>>,
     current_ui: Window,
-    pub joinhandle: Option<JoinHandle<Dspf>>,
+    pub joinhandle: Option<JoinHandle<Result<Dspf>>>,
 }
 
 impl App {
@@ -54,7 +78,7 @@ impl App {
         app.current_ui = Window::Progress(ProgressUI::new(Arc::clone(&status)));
 
         let p = path.to_owned();
-        app.joinhandle = Some(thread::spawn(move || {
+        app.joinhandle = Some(thread::spawn(move || -> Result<Dspf> {
             Dspf::load(&p, Some(Arc::clone(&status)))
         }));
 
@@ -71,20 +95,23 @@ impl App {
         Ok(())
     }
 
-    fn try_join_loader(&mut self) {
+    fn try_join_loader(&mut self) -> Result<()> {
         if let Some(j) = self.joinhandle.as_ref() {
             if j.is_finished() {
                 let j = self.joinhandle.take().unwrap();
-                let dspf = j.join().unwrap();
-                self.dspf = Some(Rc::new(dspf));
-                self.current_ui = Window::MainMenu(MainMenuUI::new(self.dspf.as_ref().unwrap()));
+                let dspf = j.join().unwrap()?; // propagate panic, return err if thread returned err
+
+                let dspf = Rc::new(dspf);
+                self.current_ui = Window::MainMenu(MainMenuUI::new(&dspf, &MENU_OPTIONS));
+                self.dspf = Some(dspf);
             }
         }
+        Ok(())
     }
 
     pub fn main_loop(&mut self) -> Result<()> {
         while self.running {
-            self.try_join_loader();
+            self.try_join_loader()?;
 
             self.tui.draw(&mut self.current_ui)?;
 
@@ -92,35 +119,31 @@ impl App {
 
             match action {
                 Action::Quit => self.quit(),
-                Action::Esc => match self.current_ui {
-                    Window::MainMenu(_) => {
-                        self.quit();
+                Action::MainMenu => {
+                    if let Some(dspf) = &self.dspf {
+                        self.current_ui = Window::MainMenu(MainMenuUI::new(dspf, &MENU_OPTIONS));
                     }
-                    _ => {
-                        self.current_ui =
-                            Window::MainMenu(MainMenuUI::new(self.dspf.as_ref().unwrap()));
-                    }
-                },
-                Action::SelectMenuOption(i) => self.main_menu(i),
+                }
+                Action::SelectMenuOption(option) => self.main_menu(option),
                 _ => {}
             }
         }
         Ok(())
     }
 
-    fn main_menu(&mut self, selection: usize) {
-        match selection {
-            0 => {
-                self.current_ui =
-                    Window::NetCap(NetCapMainUI::new(self.dspf.as_ref().unwrap().clone()));
+    fn main_menu(&mut self, option: MainMenuOption) {
+        if let Some(dspf) = &self.dspf {
+            match option {
+                MainMenuOption::CapAnalysis => {
+                    self.current_ui = Window::NetCap(NetCapMainUI::new(dspf.clone()));
+                }
+                MainMenuOption::ResAnalysis => {
+                    self.current_ui = Window::Res(ResMainUI::new(dspf.clone()));
+                }
+                MainMenuOption::Quit => {
+                    self.quit();
+                }
             }
-            1 => {
-                self.current_ui = Window::Res(ResMainUI::new(self.dspf.as_ref().unwrap().clone()));
-            }
-            2 => {
-                self.quit();
-            }
-            _ => {}
         }
     }
 

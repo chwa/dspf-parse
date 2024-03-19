@@ -25,7 +25,7 @@ pub struct ResResultWidget {
 impl ResResultWidget {
     pub fn new(report: ResReport) -> Self {
         let mut table_outputs_sorted = report.table_outputs.clone();
-        table_outputs_sorted.sort_by(|a, b| b.resistance.partial_cmp(&a.resistance).unwrap());
+        table_outputs_sorted.sort_by(|a, b| b.resistance.total_cmp(&a.resistance));
 
         let mut output_list = TableSelect::new(table_outputs_sorted);
 
@@ -34,7 +34,7 @@ impl ResResultWidget {
         }
 
         let mut table_layers_sorted = report.table_layers.clone();
-        table_layers_sorted.sort_by(|a, b| b.res.partial_cmp(&a.res).unwrap());
+        table_layers_sorted.sort_by(|a, b| b.res.total_cmp(&a.res));
 
         let mut layer_list = TableSelect::new(table_layers_sorted);
 
