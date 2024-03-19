@@ -85,8 +85,8 @@ impl ResMainUI {
 
     fn handle_action(&mut self, action: Action) {
         match action {
-            Action::SelectNet(net) => {
-                self.selected_net = net;
+            Action::SelectResNet(net) => {
+                self.selected_net = Some(net);
 
                 if let Some(net_name) = &self.selected_net {
                     let idx = self.dspf.netlist.nets_map[net_name];
@@ -200,8 +200,9 @@ impl Render for ResMainUI {
                         KeyCode::Enter => {
                             match self.selected_net {
                                 None => {
-                                    let action = self.net_selection_widget.handle_event(event);
-                                    self.handle_action(action);
+                                    if let Some(net) = self.net_selection_widget.selected() {
+                                        self.handle_action(Action::SelectResNet(net));
+                                    }
                                 }
                                 Some(_) => {}
                             }
