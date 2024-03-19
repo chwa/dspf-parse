@@ -45,9 +45,9 @@ static MENU_OPTIONS: [MainMenuOption; 3] = [
 impl fmt::Display for MainMenuOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MainMenuOption::CapAnalysis => write!(f, "Report capacitance for net..."),
-            MainMenuOption::ResAnalysis => write!(f, "Path resistance [experimental]..."),
-            MainMenuOption::Quit => write!(f, "Quit"),
+            MainMenuOption::CapAnalysis => write!(f, " Report capacitance for net..."),
+            MainMenuOption::ResAnalysis => write!(f, " Path resistance [experimental]..."),
+            MainMenuOption::Quit => write!(f, " Quit"),
         }
     }
 }

@@ -16,6 +16,7 @@ pub struct MainMenuUI {
     pub num_nets: usize,
     pub num_nodes: usize,
     pub num_capacitors: usize,
+    pub num_resistors: usize,
     menu: ListSelect<MainMenuOption>,
 }
 
@@ -27,6 +28,7 @@ impl MainMenuUI {
             num_nets: dspf.netlist.all_nets.len(),
             num_nodes: dspf.netlist.all_nodes.len(),
             num_capacitors: dspf.netlist.capacitors.len(),
+            num_resistors: dspf.netlist.all_nets.iter().map(|net| net.resistors.len()).sum(),
             menu: ListSelect::new(options.to_vec()),
         }
     }
@@ -35,7 +37,7 @@ impl Render for MainMenuUI {
     fn render(&mut self, frame: &mut Frame) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Length(7), Constraint::Fill(1)])
+            .constraints(vec![Constraint::Length(8), Constraint::Fill(1)])
             .split(frame.size());
 
         let pad = |s| format!("{:<24}", s);
@@ -60,6 +62,10 @@ impl Render for MainMenuUI {
                 Span::raw(pad("Parasitic capacitors:")),
                 Span::styled(self.num_capacitors.to_string(), Style::new().gray()),
             ]),
+            Line::from(vec![
+                Span::raw(pad("Parasitic resistors:")),
+                Span::styled(self.num_resistors.to_string(), Style::new().gray()),
+            ]),
         ];
 
         frame.render_widget(
@@ -73,12 +79,7 @@ impl Render for MainMenuUI {
         );
 
         let menu = List::new(self.menu.items.iter().map(|i| i.to_string()))
-            .block(
-                Block::default()
-                    .title("Select:")
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded),
-            )
+            .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded))
             .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
         // hack, how do I do this...
