@@ -182,13 +182,20 @@ impl Widget for &mut MultiNodeSelectionWidget {
         self.menu_height = rows_layout[1].as_size().height - 2;
         StatefulWidget::render(list, rows_layout[1], buf, &mut self.menu.state);
 
+        let cols_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Fill(1), Constraint::Length(18)])
+            .split(rows_layout[2]);
         Paragraph::new(Span::from(&self.search_string))
             .block(
                 Block::new()
                     .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
+                    .border_type(fs.0)
                     .padding(Padding::horizontal(1)),
             )
-            .render(rows_layout[2], buf);
+            .render(cols_layout[0], buf);
+        Paragraph::new(format!("{:>6} selected", self.menu.items.len()))
+            .block(Block::new().borders(Borders::ALL).border_type(fs.0).padding(Padding::right(1)))
+            .render(cols_layout[1], buf);
     }
 }

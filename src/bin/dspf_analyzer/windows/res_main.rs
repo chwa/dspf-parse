@@ -94,12 +94,16 @@ impl ResMainUI {
                     let nodes: Vec<_> =
                         net.subnodes.iter().map(|idx| &self.dspf.netlist.all_nodes[*idx]).collect();
                     self.input_selection_widget =
-                        MultiNodeSelectionWidget::new(nodes.clone(), "Input node(s):");
-                    self.output_selection_widget =
-                        MultiNodeSelectionWidget::new(nodes.clone(), "Output node(s):");
+                        MultiNodeSelectionWidget::new(nodes.clone(), "Input node(s): [shorted]");
+                    self.output_selection_widget = MultiNodeSelectionWidget::new(
+                        nodes.clone(),
+                        "Output node(s): [equally loaded]",
+                    );
 
                     let excluded_nodes: Vec<_> = self.input_selection_widget.menu.items.clone();
                     self.output_selection_widget.exclude(excluded_nodes);
+                    self.focus = FocusUI::Inputs;
+                    self.highlight_focused();
                 }
             }
             Action::NodesChanged => {

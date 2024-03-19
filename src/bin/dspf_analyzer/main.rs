@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use color_eyre::{eyre::eyre, Result};
 
 mod app;
 mod event;
@@ -9,14 +9,15 @@ mod windows;
 use app::App;
 
 fn main() -> Result<()> {
+    // color_eyre::install()?;
+
     let args: Vec<String> = std::env::args().collect();
 
-    let mut file_path = "DSPF/nmos_trcp70.dspf";
-    if args.len() > 1 {
-        file_path = &args[1];
+    if args.len() < 2 {
+        return Err(eyre!("No DSPF filename provided."));
     }
-
-    App::from_file_path(file_path)?;
+    let file_path = &args[1];
+    App::run(file_path)?;
 
     Ok(())
 }

@@ -87,7 +87,9 @@ impl Widget for &mut ResResultWidget {
             .direction(Direction::Vertical)
             .constraints(vec![
                 Constraint::Length(2),
+                Constraint::Length(2),
                 Constraint::Fill(1),
+                Constraint::Length(1),
                 Constraint::Fill(1),
             ])
             .split(area);
@@ -97,11 +99,14 @@ impl Widget for &mut ResResultWidget {
         let fs = focus_style(self.focus);
 
         Paragraph::new(format!(
-            "\n  Resistance: {}",
+            "\n  Total effective R: {}",
             eng_format_res(self.report.total_res, self.report.total_res),
         ))
-        .style(fs.1)
         .render(rows_layout[0], buf);
+
+        Paragraph::new("\n  Effective R for output port: [~IR drop]")
+            .style(fs.1)
+            .render(rows_layout[1], buf);
 
         let max_r = self
             .output_list
@@ -136,7 +141,9 @@ impl Widget for &mut ResResultWidget {
                     .padding(Padding::horizontal(1)),
             )
             .highlight_style(Style::new().reversed());
-        StatefulWidget::render(table, rows_layout[1], buf, &mut self.output_list.state);
+        StatefulWidget::render(table, rows_layout[2], buf, &mut self.output_list.state);
+
+        Paragraph::new("  Layer contributions to total R:").render(rows_layout[3], buf);
 
         // --layers
         let rows: Vec<_> = self
@@ -158,14 +165,12 @@ impl Widget for &mut ResResultWidget {
             Constraint::Length(12),
             Constraint::Length(6),
         ];
-        let table = Table::new(rows, widths)
-            .block(
-                Block::new()
-                    .borders(Borders::ALL)
-                    .border_type(fs.0)
-                    .padding(Padding::horizontal(1)),
-            )
-            .highlight_style(Style::new().reversed());
-        StatefulWidget::render(table, rows_layout[2], buf, &mut self.layer_list.state);
+        let table = Table::new(rows, widths).block(
+            Block::new()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .padding(Padding::horizontal(1)),
+        );
+        StatefulWidget::render(table, rows_layout[4], buf, &mut self.layer_list.state);
     }
 }

@@ -71,8 +71,9 @@ impl App {
         })
     }
 
-    pub fn from_file_path(path: &str) -> Result<Self> {
+    pub fn run(path: &str) -> Result<()> {
         let mut app = Self::new()?;
+        app.init()?;
 
         let status: Arc<Mutex<LoadStatus>> = Arc::new(Mutex::new(LoadStatus::default()));
         app.current_ui = Window::Progress(ProgressUI::new(Arc::clone(&status)));
@@ -82,11 +83,9 @@ impl App {
             Dspf::load(&p, Some(Arc::clone(&status)))
         }));
 
-        app.init()?;
-        app.main_loop()?;
+        let x = app.main_loop();
         app.cleanup()?;
-
-        Ok(app)
+        x
     }
 
     pub fn init(&mut self) -> Result<()> {
