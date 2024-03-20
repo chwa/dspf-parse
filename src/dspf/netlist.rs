@@ -405,6 +405,51 @@ pub struct LayerCapReport {
     pub table: Vec<NetCapForLayer>,
 }
 
+#[derive(Clone, Copy)]
+pub enum LayerCapGroupBy {
+    VictimLayer,
+    AggrLayer,
+}
+
+pub struct LayerCapGrouped {
+    pub grouped: LayerCapGroupBy,
+    pub layer: String,
+    pub total_cap: f64,
+    pub individual: Vec<(String, f64)>,
+}
+
+impl LayerCapReport {
+    fn first_second(item: &NetCapForLayer, which: LayerCapGroupBy) -> (&str, &str) {
+        match which {
+            LayerCapGroupBy::VictimLayer => (&item.layer_names.0, &item.layer_names.1),
+            LayerCapGroupBy::AggrLayer => (&item.layer_names.1, &item.layer_names.0),
+        }
+    }
+    pub fn grouped(&self, group_by: LayerCapGroupBy) -> Vec<LayerCapGrouped> {
+        let mut t: HashMap<&str, Vec<(&str, f64)>> = HashMap::new();
+        for item in &self.table {
+            let (first, second) = match group_by {
+                LayerCapGroupBy::VictimLayer => (&item.layer_names.0, &item.layer_names.1),
+                LayerCapGroupBy::AggrLayer => (&item.layer_names.1, &item.layer_names.0),
+            };
+
+            t.entry(first).or_insert(Vec::new()).push((second, item.cap));
+        }
+        let mut result: Vec<LayerCapGrouped> = Vec::new();
+        for (k, v) in t {
+            let total_cap = v.iter().map(|(_, cap)| cap).sum();
+            result.push(LayerCapGrouped {
+                grouped: group_by,
+                layer: k.to_owned(),
+                total_cap,
+                individual: v.iter().map(|(l, v)| (l.to_string(), *v)).collect(),
+            })
+        }
+        result.sort_by(|a, b| b.total_cap.total_cmp(&a.total_cap));
+        result
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AggrNet {
     #[default]

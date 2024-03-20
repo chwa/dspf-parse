@@ -1,6 +1,7 @@
 use crate::util::{eng_format_cap, line_bar};
 use crate::{app::Action, event::Event};
-use dspf_parse::dspf::netlist::LayerCapReport;
+use crossterm::event::KeyCode;
+use dspf_parse::dspf::netlist::{LayerCapGroupBy, LayerCapReport};
 use ratatui::{prelude::*, widgets::*};
 
 use super::net_cap_main::focus_style;
@@ -8,6 +9,7 @@ use super::net_cap_main::focus_style;
 pub struct LayerCapResultWidget {
     pub focus: bool,
     report: LayerCapReport,
+    view_mode: LayerCapViewMode,
 }
 
 impl LayerCapResultWidget {
@@ -15,8 +17,23 @@ impl LayerCapResultWidget {
         Self {
             focus: false,
             report,
+            view_mode: LayerCapViewMode::Flat,
         }
     }
+    fn change_view(&mut self) {
+        use LayerCapGroupBy::*;
+        use LayerCapViewMode::*;
+        self.view_mode = match self.view_mode {
+            Flat => Grouped(VictimLayer),
+            Grouped(VictimLayer) => Grouped(AggrLayer),
+            Grouped(AggrLayer) => Flat,
+        }
+    }
+}
+
+enum LayerCapViewMode {
+    Flat,
+    Grouped(LayerCapGroupBy),
 }
 
 impl Widget for &mut LayerCapResultWidget {
@@ -30,19 +47,67 @@ impl Widget for &mut LayerCapResultWidget {
 
         Paragraph::new("\n  Layer pairs:").style(fs.1).render(rows_layout[0], buf);
 
-        let rows: Vec<_> = self
-            .report
-            .table
-            .iter()
-            .map(|x| {
-                let col1 = Line::raw(&x.layer_names.0);
-                let col2 = Line::raw(&x.layer_names.1);
-                let col3 = Line::raw(eng_format_cap(x.cap, self.report.total_cap));
-                let col4 = line_bar(12, x.cap / self.report.total_cap);
-                let col5 = Line::raw(format!("{:5.1}%", 100.0 * x.cap / self.report.total_cap));
-                Row::new(vec![col1, col2, col3, col4, col5])
-            })
-            .collect();
+        let mut rows: Vec<Row>;
+
+        // TODO: rows should not be re-computed inside render()
+
+        match self.view_mode {
+            LayerCapViewMode::Flat => {
+                rows = self
+                    .report
+                    .table
+                    .iter()
+                    .map(|x| {
+                        let col1 = Line::raw(&x.layer_names.0);
+                        let col2 = Line::raw(&x.layer_names.1);
+                        let col3 = Line::raw(eng_format_cap(x.cap, self.report.total_cap));
+                        let col4 = line_bar(12, x.cap / self.report.total_cap);
+                        let col5 =
+                            Line::raw(format!("{:5.1}%", 100.0 * x.cap / self.report.total_cap));
+                        Row::new(vec![col1, col2, col3, col4, col5])
+                    })
+                    .collect();
+            }
+            LayerCapViewMode::Grouped(group_by) => {
+                let grouped = self.report.grouped(group_by);
+                rows = Vec::new();
+                for item in grouped {
+                    let layer = Line::raw(item.layer.to_owned());
+                    let mut row = match group_by {
+                        LayerCapGroupBy::VictimLayer => vec![layer, Line::default()],
+                        LayerCapGroupBy::AggrLayer => vec![Line::default(), layer],
+                    };
+                    row.push(Line::raw(eng_format_cap(
+                        item.total_cap,
+                        self.report.total_cap,
+                    )));
+                    row.push(line_bar(12, item.total_cap / self.report.total_cap));
+                    row.push(Line::raw(format!(
+                        "{:5.1}%",
+                        100.0 * item.total_cap / self.report.total_cap
+                    )));
+                    rows.push(Row::new(row));
+                    for second in item.individual {
+                        let mut row = match group_by {
+                            LayerCapGroupBy::VictimLayer => {
+                                vec![Line::default(), Line::raw(second.0)]
+                            }
+                            LayerCapGroupBy::AggrLayer => {
+                                vec![Line::raw(second.0), Line::default()]
+                            }
+                        };
+                        row.push(Line::raw(eng_format_cap(second.1, self.report.total_cap)));
+                        row.push(line_bar(12, second.1 / self.report.total_cap));
+                        row.push(Line::raw(format!(
+                            "{:5.1}%",
+                            100.0 * second.1 / self.report.total_cap
+                        )));
+                        rows.push(Row::new(row));
+                    }
+                    rows.push(Row::new(vec![Cell::from(" ")]));
+                }
+            }
+        }
 
         let widths = [
             Constraint::Fill(1),
@@ -67,6 +132,10 @@ impl LayerCapResultWidget {
             Event::Key(key_event) => {
                 if key_event.kind == crossterm::event::KeyEventKind::Press {
                     match key_event.code {
+                        KeyCode::Char(' ') => {
+                            self.change_view();
+                            Action::None
+                        }
                         _ => Action::None,
                     }
                 } else {

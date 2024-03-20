@@ -8,7 +8,7 @@ use crate::{
 };
 use dspf_parse::dspf::Dspf;
 
-use super::Render;
+use super::{status_bar::StatusBar, Render};
 
 pub struct MainMenuUI {
     pub filename: String,
@@ -35,10 +35,14 @@ impl MainMenuUI {
 }
 impl Render for MainMenuUI {
     fn render(&mut self, frame: &mut Frame) {
+        let mut status_bar =
+            StatusBar::default().top_left("dspf-analyzer").bottom_left(&self.filename);
+        frame.render_widget(&mut status_bar, frame.size());
+
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![Constraint::Length(8), Constraint::Fill(1)])
-            .split(frame.size());
+            .split(status_bar.inner);
 
         let pad = |s| format!("{:<24}", s);
         let text = vec![

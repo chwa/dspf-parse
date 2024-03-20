@@ -59,19 +59,29 @@ impl NetCapMainUI {
         use FocusUI::*;
         self.focus = match self.focus {
             Selection => Result,
-            Result => Selection, // skip layers for now
+            Result => Layers,
             Layers => Selection,
         };
         self.highlight_focused()
     }
 
     fn left(&mut self) {
-        self.focus = FocusUI::Selection;
+        use FocusUI::*;
+        self.focus = match self.focus {
+            Selection => Selection,
+            Result => Selection,
+            Layers => Result,
+        };
         self.highlight_focused()
     }
 
     fn right(&mut self) {
-        self.focus = FocusUI::Result;
+        use FocusUI::*;
+        self.focus = match self.focus {
+            Selection => Result,
+            Result => Layers,
+            Layers => Layers,
+        };
         self.highlight_focused()
     }
 
