@@ -47,30 +47,29 @@ impl Widget for &mut LayerCapResultWidget {
 
         Paragraph::new("\n  Layer pairs:").style(fs.1).render(rows_layout[0], buf);
 
-        let mut rows: Vec<Row>;
+        let mut rows: Vec<Row> = vec![
+            Row::new(vec![
+                Span::styled("self:", Style::new().bold()),
+                Span::styled("other:", Style::new().bold()),
+            ]),
+            Row::new(vec![""]),
+        ];
 
         // TODO: rows should not be re-computed inside render()
 
         match self.view_mode {
             LayerCapViewMode::Flat => {
-                rows = self
-                    .report
-                    .table
-                    .iter()
-                    .map(|x| {
-                        let col1 = Line::raw(&x.layer_names.0);
-                        let col2 = Line::raw(&x.layer_names.1);
-                        let col3 = Line::raw(eng_format_cap(x.cap, self.report.total_cap));
-                        let col4 = line_bar(12, x.cap / self.report.total_cap);
-                        let col5 =
-                            Line::raw(format!("{:5.1}%", 100.0 * x.cap / self.report.total_cap));
-                        Row::new(vec![col1, col2, col3, col4, col5])
-                    })
-                    .collect();
+                rows.extend(self.report.table.iter().map(|x| {
+                    let col1 = Line::raw(&x.layer_names.0);
+                    let col2 = Line::raw(&x.layer_names.1);
+                    let col3 = Line::raw(eng_format_cap(x.cap, self.report.total_cap));
+                    let col4 = line_bar(12, x.cap / self.report.total_cap);
+                    let col5 = Line::raw(format!("{:5.1}%", 100.0 * x.cap / self.report.total_cap));
+                    Row::new(vec![col1, col2, col3, col4, col5])
+                }));
             }
             LayerCapViewMode::Grouped(group_by) => {
                 let grouped = self.report.grouped(group_by);
-                rows = Vec::new();
                 for item in grouped {
                     let layer = Line::raw(item.layer.to_owned());
                     let mut row = match group_by {
@@ -87,13 +86,26 @@ impl Widget for &mut LayerCapResultWidget {
                         100.0 * item.total_cap / self.report.total_cap
                     )));
                     rows.push(Row::new(row));
-                    for second in item.individual {
+                    let mut items = item.individual.iter().peekable();
+                    while let Some(second) = items.next() {
                         let mut row = match group_by {
                             LayerCapGroupBy::VictimLayer => {
-                                vec![Line::default(), Line::raw(second.0)]
+                                vec![
+                                    Line::raw(match items.peek() {
+                                        Some(_) => String::from("├") + &"─".repeat(40),
+                                        None => String::from("└") + &"─".repeat(40),
+                                    }),
+                                    Line::raw(second.0.clone()),
+                                ]
                             }
                             LayerCapGroupBy::AggrLayer => {
-                                vec![Line::raw(second.0), Line::default()]
+                                vec![
+                                    Line::raw(second.0.clone() + " " + &"─".repeat(40)),
+                                    Line::raw(match items.peek() {
+                                        Some(_) => String::from("┤"),
+                                        None => String::from("┘"),
+                                    }),
+                                ]
                             }
                         };
                         row.push(Line::raw(eng_format_cap(second.1, self.report.total_cap)));
