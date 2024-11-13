@@ -101,26 +101,27 @@ impl Dspf {
             let net_name = net.info.name.clone();
 
             let net_idx = netlist.add_net(net);
-            if nodes.is_empty() {
-                // special case, if the net has no subnodes listed explicitly,
-                // we need to insert the net itself as its only subnode
-                let node_idx = netlist.add_node(Node {
-                    name: net_name.clone(),
-                    info: NodeType::Other,
-                    coord: None,
-                    capacitors: Vec::new(),
-                    of_net: 0, // will override below
-                });
-                nodes_map.insert(net_name.clone(), node_idx);
-                netlist.all_nodes[node_idx].of_net = net_idx;
-                netlist.all_nets[net_idx].subnodes.push(node_idx);
-            }
 
             for mut node in nodes {
                 let name = node.name.clone();
                 node.of_net = net_idx;
                 let node_idx = netlist.add_node(node);
                 nodes_map.insert(name, node_idx);
+                netlist.all_nets[net_idx].subnodes.push(node_idx);
+            }
+
+            if !nodes_map.contains_key(&net_name) {
+                // special case, if the net name is not listed as a (P/I/S) subnode
+                // it is assumed implicitly and we need to insert it
+                let node_idx = netlist.add_node(Node {
+                    name: net_name.clone(),
+                    info: NodeType::Other,
+                    coord: None,
+                    capacitors: Vec::new(),
+                    of_net: net_idx,
+                });
+                nodes_map.insert(net_name.clone(), node_idx);
+                netlist.all_nodes[node_idx].of_net = net_idx;
                 netlist.all_nets[net_idx].subnodes.push(node_idx);
             }
 
